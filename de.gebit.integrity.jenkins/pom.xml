@@ -31,7 +31,7 @@
   <properties>
   	<sonar.exclusions>de/gebit/integrity/Messages.java</sonar.exclusions>
   </properties>
-  
+    
   <!-- Override default Jenkins-CI repositories, since we currently don't want to release the plugin there yet -->
   <distributionManagement>
   	<repository>
@@ -45,7 +45,17 @@
   		<url>http://nexus.integrity-tf.org/content/repositories/snapshots</url>
   	</snapshotRepository>
   </distributionManagement>
+  
   <build>
+  	<plugins>
+  		<plugin>
+  			<groupId>org.jenkins-ci.tools</groupId>
+			<artifactId>maven-hpi-plugin</artifactId>
+			<configuration>
+				<hpiName>${project.artifactId}-${project.version}</hpiName>
+			</configuration>
+  		</plugin>
+  	</plugins>
   	<pluginManagement>
   		<plugins>
   			<!--This plugin's configuration is used to store Eclipse m2e settings only. It has no influence on the Maven build itself.-->
