@@ -19,13 +19,16 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.List;
 
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.parsers.SAXParser;
+import javax.xml.parsers.SAXParserFactory;
+
 import org.xml.sax.Attributes;
 import org.xml.sax.ContentHandler;
 import org.xml.sax.InputSource;
 import org.xml.sax.Locator;
 import org.xml.sax.SAXException;
 import org.xml.sax.XMLReader;
-import org.xml.sax.helpers.XMLReaderFactory;
 
 /**
  * The actual parser for parsing the Integrity result files and extraction of summary information.
@@ -81,7 +84,13 @@ public class IntegrityTestResultParser extends DefaultTestResultParserImpl {
 
 				final IntegrityContentHandler tempContentHandler = new IntegrityContentHandler();
 
-				XMLReader tempXmlReader = XMLReaderFactory.createXMLReader();
+				SAXParser tempParser;
+				try {
+					tempParser = SAXParserFactory.newInstance().newSAXParser();
+				} catch (ParserConfigurationException exc) {
+					throw new IOException(exc);
+				}
+				XMLReader tempXmlReader = tempParser.getXMLReader();
 				tempXmlReader.setContentHandler(tempContentHandler);
 				tempXmlReader.setFeature("http://xml.org/sax/features/validation", false);
 				tempXmlReader.setFeature("http://apache.org/xml/features/nonvalidating/load-dtd-grammar", false);
@@ -208,11 +217,11 @@ public class IntegrityTestResultParser extends DefaultTestResultParserImpl {
 					return;
 				}
 
-				if ("suite".equals(aLocalName)) {
+				if ("suite".equals(aQualifiedName)) {
 					suiteStackDepth++;
-				} else if ("integrity".equals(aLocalName)) {
+				} else if ("integrity".equals(aQualifiedName)) {
 					testName = someAttributes.getValue("name");
-				} else if ("result".equals(aLocalName)) {
+				} else if ("result".equals(aQualifiedName)) {
 					if (suiteStackDepth == 1 && someAttributes.getValue("type") == null) {
 						// This seems to be the outermost suite result element (call results are also <result> elements,
 						// but they contain a result type instead of a summary). We simply fetch the execution totals
@@ -251,7 +260,7 @@ public class IntegrityTestResultParser extends DefaultTestResultParserImpl {
 					insideXslt = false;
 				}
 			} else {
-				if ("suite".equals(aLocalName)) {
+				if ("suite".equals(aQualifiedName)) {
 					suiteStackDepth--;
 				}
 			}
