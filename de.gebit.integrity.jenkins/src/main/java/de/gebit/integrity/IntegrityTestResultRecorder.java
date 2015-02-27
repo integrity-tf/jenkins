@@ -45,6 +45,11 @@ public class IntegrityTestResultRecorder extends Recorder {
 	private final String testResultFileNamePattern;
 
 	/**
+	 * Whether "no results" should be ignored.
+	 */
+	private final Boolean ignoreNoResults;
+
+	/**
 	 * Creates a new instance.
 	 * 
 	 * @param testResultFileNamePattern
@@ -52,12 +57,17 @@ public class IntegrityTestResultRecorder extends Recorder {
 	 */
 	@DataBoundConstructor
 	// SUPPRESS CHECKSTYLE LONG ParameterNames
-	public IntegrityTestResultRecorder(String testResultFileNamePattern) {
+	public IntegrityTestResultRecorder(String testResultFileNamePattern, Boolean ignoreNoResults) {
 		this.testResultFileNamePattern = testResultFileNamePattern;
+		this.ignoreNoResults = ignoreNoResults;
 	}
 
 	public String getTestResultFileNamePattern() {
 		return testResultFileNamePattern;
+	}
+
+	public Boolean getIgnoreNoResults() {
+		return ignoreNoResults;
 	}
 
 	public BuildStepMonitor getRequiredMonitorService() {
@@ -92,16 +102,20 @@ public class IntegrityTestResultRecorder extends Recorder {
 			} catch (NullPointerException exc) {
 				throw new AbortException(Messages.JUnitResultArchiver_BadXML(testResultFileNamePattern));
 			}
-			if (tempResult.getTotalCount() == 0) {
-				throw new AbortException("Integrity Test Result is empty!");
-			}
 		} catch (AbortException exc) {
 			if (aBuild.getResult() == Result.FAILURE) {
 				return true;
 			}
 
 			aListener.getLogger().println(exc.getMessage());
-			aBuild.setResult(Result.FAILURE);
+			if (!Boolean.TRUE.equals(ignoreNoResults)) {
+				aBuild.setResult(Result.FAILURE);
+			} else {
+				aListener
+						.getLogger()
+						.println(
+								"Not failing the build because the plugin is configured to ignore if test results are not found");
+			}
 			return true;
 		} catch (IOException exc) {
 			exc.printStackTrace(aListener.error("Failed to archive test reports"));
