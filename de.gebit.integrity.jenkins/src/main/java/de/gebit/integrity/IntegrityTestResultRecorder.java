@@ -50,6 +50,11 @@ public class IntegrityTestResultRecorder extends Recorder {
 	private final Boolean ignoreNoResults;
 
 	/**
+	 * Fail the build on test errors.
+	 */
+	private final Boolean failOnTestErrors;
+
+	/**
 	 * Creates a new instance.
 	 * 
 	 * @param testResultFileNamePattern
@@ -57,9 +62,11 @@ public class IntegrityTestResultRecorder extends Recorder {
 	 */
 	@DataBoundConstructor
 	// SUPPRESS CHECKSTYLE LONG ParameterNames
-	public IntegrityTestResultRecorder(String testResultFileNamePattern, Boolean ignoreNoResults) {
+	public IntegrityTestResultRecorder(String testResultFileNamePattern, Boolean ignoreNoResults,
+			Boolean failOnTestErrors) {
 		this.testResultFileNamePattern = testResultFileNamePattern;
 		this.ignoreNoResults = ignoreNoResults;
+		this.failOnTestErrors = failOnTestErrors;
 	}
 
 	public String getTestResultFileNamePattern() {
@@ -68,6 +75,10 @@ public class IntegrityTestResultRecorder extends Recorder {
 
 	public Boolean getIgnoreNoResults() {
 		return ignoreNoResults;
+	}
+
+	public Boolean getFailOnTestErrors() {
+		return failOnTestErrors;
 	}
 
 	public BuildStepMonitor getRequiredMonitorService() {
@@ -127,7 +138,7 @@ public class IntegrityTestResultRecorder extends Recorder {
 
 		if (tempResultAction.getResult().getFailCount() > 0 || tempResultAction.getResult().getSkipCount() > 0
 				|| tempResultAction.getResult().getExceptionCount() > 0) {
-			aBuild.setResult(Result.UNSTABLE);
+			aBuild.setResult(failOnTestErrors ? Result.FAILURE : Result.UNSTABLE);
 		}
 
 		return true;
