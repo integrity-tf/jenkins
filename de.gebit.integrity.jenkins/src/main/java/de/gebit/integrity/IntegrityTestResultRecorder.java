@@ -138,7 +138,7 @@ public class IntegrityTestResultRecorder extends Recorder {
 
 		if (tempResultAction.getResult().getFailCount() > 0 || tempResultAction.getResult().getSkipCount() > 0
 				|| tempResultAction.getResult().getExceptionCount() > 0) {
-			aBuild.setResult(failOnTestErrors ? Result.FAILURE : Result.UNSTABLE);
+			aBuild.setResult(Boolean.TRUE.equals(failOnTestErrors) ? Result.FAILURE : Result.UNSTABLE);
 		}
 
 		return true;
