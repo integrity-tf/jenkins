@@ -267,22 +267,22 @@ public class IntegrityTestResultParser extends DefaultTestResultParserImpl {
 						// but they contain a result type instead of a summary). We simply fetch the execution totals
 						// from this one and rely on Integrity for summing them up correctly.
 
-						String tempSuccessCount = someAttributes.getValue("successCount");
+						String tempSuccessCount = getValueIgnoreCase(someAttributes, "successCount");
 						if (tempSuccessCount != null) {
 							successCount = Integer.parseInt(tempSuccessCount);
 						}
 
-						String tempFailureCount = someAttributes.getValue("failureCount");
+						String tempFailureCount = getValueIgnoreCase(someAttributes, "failureCount");
 						if (tempFailureCount != null) {
 							failureCount = Integer.parseInt(tempFailureCount);
 						}
 
-						String tempTestExceptionCount = someAttributes.getValue("testExceptionCount");
+						String tempTestExceptionCount = getValueIgnoreCase(someAttributes, "testExceptionCount");
 						if (tempTestExceptionCount != null) {
 							testExceptionCount = Integer.parseInt(tempTestExceptionCount);
 						}
 
-						String tempCallExceptionCount = someAttributes.getValue("callExceptionCount");
+						String tempCallExceptionCount = getValueIgnoreCase(someAttributes, "callExceptionCount");
 						if (tempTestExceptionCount != null) {
 							callExceptionCount = Integer.parseInt(tempCallExceptionCount);
 						}
@@ -320,6 +320,16 @@ public class IntegrityTestResultParser extends DefaultTestResultParserImpl {
 
 		public void skippedEntity(String aName) throws SAXException {
 			// not used at the moment
+		}
+
+		private String getValueIgnoreCase(Attributes someAttributes, String aName) {
+			for (int i = 0; i < someAttributes.getLength(); i++) {
+				String tempQName = someAttributes.getQName(i);
+				if (tempQName.equalsIgnoreCase(aName)) {
+					return someAttributes.getValue(i);
+				}
+			}
+			return null;
 		}
 	}
 
