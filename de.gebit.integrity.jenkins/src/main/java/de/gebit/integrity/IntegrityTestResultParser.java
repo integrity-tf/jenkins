@@ -17,6 +17,8 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.SequenceInputStream;
 import java.util.List;
 
 import javax.xml.parsers.ParserConfigurationException;
@@ -71,7 +73,9 @@ public class IntegrityTestResultParser extends DefaultTestResultParserImpl {
 				}
 
 				String tempContentType = null;
-				if (tempBuffer.length > 5) {
+				int tempXMLDataStartPos = 0;
+				int tempDoctypeEndPos = 0;
+				if (tempBuffer.length > 10) {
 					if (tempBuffer[0] == '<' && tempBuffer[1] == '?' && tempBuffer[2] == 'x' && tempBuffer[3] == 'm'
 							&& tempBuffer[4] == 'l') {
 						// This seems to be XML data
@@ -79,6 +83,28 @@ public class IntegrityTestResultParser extends DefaultTestResultParserImpl {
 					} else {
 						// This seems to be HTML
 						tempContentType = "text/html;charset=UTF-8";
+
+						// Find out where the DOCTYPE declaration ends
+						if ("<!DOCTYPE ".equals(new String(tempBuffer, 0, 10, "US-ASCII"))) {
+							do {
+								tempDoctypeEndPos++;
+							} while (tempDoctypeEndPos < tempBuffer.length && tempBuffer[tempDoctypeEndPos - 1] != '>');
+							tempXMLDataStartPos = tempDoctypeEndPos; // XML cannot start before the DOCTYPE
+						}
+
+						// To increase robustness, we forward the stream to the start of the actual XML data embedded in
+						// the HTML
+						while (tempXMLDataStartPos < tempBuffer.length - 10
+								&& !(tempBuffer[tempXMLDataStartPos] == '<'
+										&& tempBuffer[tempXMLDataStartPos + 1] == 'x'
+										&& tempBuffer[tempXMLDataStartPos + 2] == 'm'
+										&& tempBuffer[tempXMLDataStartPos + 3] == 'l'
+										&& tempBuffer[tempXMLDataStartPos + 4] == 'd'
+										&& tempBuffer[tempXMLDataStartPos + 5] == 'a'
+										&& tempBuffer[tempXMLDataStartPos + 6] == 't'
+										&& tempBuffer[tempXMLDataStartPos + 7] == 'a' && tempBuffer[tempXMLDataStartPos + 8] == ' ')) {
+							tempXMLDataStartPos++;
+						}
 					}
 				}
 
@@ -96,7 +122,21 @@ public class IntegrityTestResultParser extends DefaultTestResultParserImpl {
 				tempXmlReader.setFeature("http://apache.org/xml/features/nonvalidating/load-dtd-grammar", false);
 				tempXmlReader.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
 
-				InputSource tempInputSource = new InputSource(new ByteArrayInputStream(tempBuffer));
+				InputStream tempFinalInputStream;
+				if (tempDoctypeEndPos > 0 && tempXMLDataStartPos < tempBuffer.length) {
+					// If we have an end position for the DOCTYPE declaration and a valid XML data start, just sequence
+					// the doctype declaration with the XML data, thereby eliminating everything in between that could
+					// cause trouble
+					tempFinalInputStream = new SequenceInputStream(new ByteArrayInputStream(tempBuffer, 0,
+							tempDoctypeEndPos), new ByteArrayInputStream(tempBuffer, tempXMLDataStartPos,
+							tempBuffer.length - tempXMLDataStartPos));
+				} else {
+					// Just start parsing where the XML begins
+					tempFinalInputStream = new ByteArrayInputStream(tempBuffer, tempXMLDataStartPos, tempBuffer.length
+							- tempXMLDataStartPos);
+				}
+
+				InputSource tempInputSource = new InputSource(tempFinalInputStream);
 
 				try {
 					tempXmlReader.parse(tempInputSource);
