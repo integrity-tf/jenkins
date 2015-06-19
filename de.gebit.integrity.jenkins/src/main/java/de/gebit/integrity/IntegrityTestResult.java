@@ -128,6 +128,11 @@ public class IntegrityTestResult extends TabulatedResult {
 	}
 
 	@Override
+	public void setParent(TestObject aParent) {
+		parent = aParent;
+	}
+
+	@Override
 	public AbstractBuild<?, ?> getOwner() {
 		return (parentAction == null ? null : parentAction.owner);
 	}
