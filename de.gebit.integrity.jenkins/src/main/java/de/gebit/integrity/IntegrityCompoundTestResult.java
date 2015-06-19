@@ -40,6 +40,11 @@ public class IntegrityCompoundTestResult extends TabulatedResult {
 	private List<IntegrityTestResult> tempChildren = new ArrayList<IntegrityTestResult>();
 
 	/**
+	 * Whether we already updated child links.
+	 */
+	private transient boolean hasUpdatedChildLinks;
+
+	/**
 	 * The action owning this result.
 	 */
 	private transient AbstractTestResultAction<?> parentAction;
@@ -52,6 +57,7 @@ public class IntegrityCompoundTestResult extends TabulatedResult {
 	 */
 	public void addChild(IntegrityTestResult aChild) {
 		tempChildren.add(aChild);
+		aChild.setParent(this);
 	}
 
 	public String getDisplayName() {
@@ -119,6 +125,13 @@ public class IntegrityCompoundTestResult extends TabulatedResult {
 
 	@Override
 	public Collection<? extends TestResult> getChildren() {
+		if (!hasUpdatedChildLinks) {
+			for (IntegrityTestResult tempChild : tempChildren) {
+				tempChild.setParent(this);
+			}
+			hasUpdatedChildLinks = true;
+		}
+
 		return tempChildren;
 	}
 
