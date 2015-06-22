@@ -40,6 +40,11 @@ public class IntegrityCompoundTestResult extends TabulatedResult {
 	private List<IntegrityTestResult> tempChildren = new ArrayList<IntegrityTestResult>();
 
 	/**
+	 * Whether we already updated child links.
+	 */
+	private transient boolean hasUpdatedChildLinks;
+
+	/**
 	 * The action owning this result.
 	 */
 	private transient AbstractTestResultAction<?> parentAction;
@@ -52,6 +57,7 @@ public class IntegrityCompoundTestResult extends TabulatedResult {
 	 */
 	public void addChild(IntegrityTestResult aChild) {
 		tempChildren.add(aChild);
+		aChild.setParent(this);
 	}
 
 	public String getDisplayName() {
@@ -95,8 +101,14 @@ public class IntegrityCompoundTestResult extends TabulatedResult {
 			return this;
 		} else {
 			if (hasChildren()) {
+				// For some totally unexplainable reason (no, really...I spent several hours to find an explanation, but
+				// was unsuccessful) the Jenkins sometimes designates an ID of "(empty)" to instances of this class. If
+				// it does, the children automatically expand their ID, so the queried ID does not match anymore. I
+				// simply expand it as well here :-)
+				String tempChildId = (getId() != null && getId().length() > 0) ? getId() + "/" + anId : anId;
+
 				for (TestResult tempChild : getChildren()) {
-					TestResult tempResult = tempChild.findCorrespondingResult(anId);
+					TestResult tempResult = tempChild.findCorrespondingResult(tempChildId);
 					if (tempResult != null) {
 						return tempResult;
 					}
@@ -113,6 +125,13 @@ public class IntegrityCompoundTestResult extends TabulatedResult {
 
 	@Override
 	public Collection<? extends TestResult> getChildren() {
+		if (!hasUpdatedChildLinks) {
+			for (IntegrityTestResult tempChild : tempChildren) {
+				tempChild.setParent(this);
+			}
+			hasUpdatedChildLinks = true;
+		}
+
 		return tempChildren;
 	}
 
