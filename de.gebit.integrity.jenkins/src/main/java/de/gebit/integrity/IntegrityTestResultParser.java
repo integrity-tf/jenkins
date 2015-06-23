@@ -75,6 +75,7 @@ public class IntegrityTestResultParser extends DefaultTestResultParserImpl {
 				String tempContentType = null;
 				int tempXMLDataStartPos = 0;
 				int tempDoctypeEndPos = 0;
+				boolean tempIsHtml = false;
 				if (tempBuffer.length > 10) {
 					if (tempBuffer[0] == '<' && tempBuffer[1] == '?' && tempBuffer[2] == 'x' && tempBuffer[3] == 'm'
 							&& tempBuffer[4] == 'l') {
@@ -83,6 +84,7 @@ public class IntegrityTestResultParser extends DefaultTestResultParserImpl {
 					} else {
 						// This seems to be HTML
 						tempContentType = "text/html;charset=UTF-8";
+						tempIsHtml = true;
 
 						// Find out where the DOCTYPE declaration ends
 						if ("<!DOCTYPE ".equals(new String(tempBuffer, 0, 10, "US-ASCII"))) {
@@ -136,7 +138,8 @@ public class IntegrityTestResultParser extends DefaultTestResultParserImpl {
 							- tempXMLDataStartPos);
 				}
 
-				InputSource tempInputSource = new InputSource(tempFinalInputStream);
+				InputSource tempInputSource = new InputSource(tempIsHtml ? new FilteringHTMLInputStream(
+						tempFinalInputStream) : tempFinalInputStream);
 
 				try {
 					tempXmlReader.parse(tempInputSource);
