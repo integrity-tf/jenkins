@@ -7,11 +7,6 @@
  *******************************************************************************/
 package de.gebit.integrity;
 
-import hudson.Launcher;
-import hudson.model.TaskListener;
-import hudson.tasks.test.DefaultTestResultParserImpl;
-import hudson.tasks.test.TestResult;
-
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -19,6 +14,7 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.SequenceInputStream;
+import java.util.ArrayList;
 import java.util.List;
 
 import javax.xml.parsers.ParserConfigurationException;
@@ -31,6 +27,17 @@ import org.xml.sax.InputSource;
 import org.xml.sax.Locator;
 import org.xml.sax.SAXException;
 import org.xml.sax.XMLReader;
+
+import hudson.AbortException;
+import hudson.FilePath;
+import hudson.FilePath.FileCallable;
+import hudson.Launcher;
+import hudson.Util;
+import hudson.model.AbstractBuild;
+import hudson.model.TaskListener;
+import hudson.remoting.VirtualChannel;
+import hudson.tasks.test.DefaultTestResultParserImpl;
+import hudson.tasks.test.TestResult;
 
 /**
  * The actual parser for parsing the Integrity result files and extraction of summary information.
@@ -46,7 +53,25 @@ public class IntegrityTestResultParser extends DefaultTestResultParserImpl {
 	private static final long serialVersionUID = 4841424533054027138L;
 
 	@Override
-	protected TestResult parse(List<File> someReportFiles, Launcher aLauncher, TaskListener aListener)
+	protected TestResult parse(List<File> arg0, Launcher arg1, TaskListener arg2)
+			throws InterruptedException, IOException {
+		throw new UnsupportedOperationException("This method is not used");
+		// See comments below for why this method is not being used, even though the superclass dedicates it for
+		// parsing.
+	}
+
+	/**
+	 * This method performs the actual file parsing. It is used as an alternative to
+	 * {@link #parse(List, Launcher, TaskListener)} in order to eliminate the (unused) parameter "Launcher", which
+	 * creates unsolvable problems in a master-slave Jenkins scenario.
+	 * 
+	 * @param someReportFiles
+	 * @param aListener
+	 * @return
+	 * @throws InterruptedException
+	 * @throws IOException
+	 */
+	protected TestResult parse(List<File> someReportFiles, TaskListener aListener)
 			throws InterruptedException, IOException {
 		final IntegrityCompoundTestResult tempCompoundTestResult = new IntegrityCompoundTestResult();
 
@@ -96,15 +121,15 @@ public class IntegrityTestResultParser extends DefaultTestResultParserImpl {
 
 						// To increase robustness, we forward the stream to the start of the actual XML data embedded in
 						// the HTML
-						while (tempXMLDataStartPos < tempBuffer.length - 10
-								&& !(tempBuffer[tempXMLDataStartPos] == '<'
-										&& tempBuffer[tempXMLDataStartPos + 1] == 'x'
-										&& tempBuffer[tempXMLDataStartPos + 2] == 'm'
-										&& tempBuffer[tempXMLDataStartPos + 3] == 'l'
-										&& tempBuffer[tempXMLDataStartPos + 4] == 'd'
-										&& tempBuffer[tempXMLDataStartPos + 5] == 'a'
-										&& tempBuffer[tempXMLDataStartPos + 6] == 't'
-										&& tempBuffer[tempXMLDataStartPos + 7] == 'a' && tempBuffer[tempXMLDataStartPos + 8] == ' ')) {
+						while (tempXMLDataStartPos < tempBuffer.length - 10 && !(tempBuffer[tempXMLDataStartPos] == '<'
+								&& tempBuffer[tempXMLDataStartPos + 1] == 'x'
+								&& tempBuffer[tempXMLDataStartPos + 2] == 'm'
+								&& tempBuffer[tempXMLDataStartPos + 3] == 'l'
+								&& tempBuffer[tempXMLDataStartPos + 4] == 'd'
+								&& tempBuffer[tempXMLDataStartPos + 5] == 'a'
+								&& tempBuffer[tempXMLDataStartPos + 6] == 't'
+								&& tempBuffer[tempXMLDataStartPos + 7] == 'a'
+								&& tempBuffer[tempXMLDataStartPos + 8] == ' ')) {
 							tempXMLDataStartPos++;
 						}
 					}
@@ -129,17 +154,17 @@ public class IntegrityTestResultParser extends DefaultTestResultParserImpl {
 					// If we have an end position for the DOCTYPE declaration and a valid XML data start, just sequence
 					// the doctype declaration with the XML data, thereby eliminating everything in between that could
 					// cause trouble
-					tempFinalInputStream = new SequenceInputStream(new ByteArrayInputStream(tempBuffer, 0,
-							tempDoctypeEndPos), new ByteArrayInputStream(tempBuffer, tempXMLDataStartPos,
-							tempBuffer.length - tempXMLDataStartPos));
+					tempFinalInputStream = new SequenceInputStream(
+							new ByteArrayInputStream(tempBuffer, 0, tempDoctypeEndPos), new ByteArrayInputStream(
+									tempBuffer, tempXMLDataStartPos, tempBuffer.length - tempXMLDataStartPos));
 				} else {
 					// Just start parsing where the XML begins
-					tempFinalInputStream = new ByteArrayInputStream(tempBuffer, tempXMLDataStartPos, tempBuffer.length
-							- tempXMLDataStartPos);
+					tempFinalInputStream = new ByteArrayInputStream(tempBuffer, tempXMLDataStartPos,
+							tempBuffer.length - tempXMLDataStartPos);
 				}
 
-				InputSource tempInputSource = new InputSource(tempIsHtml ? new FilteringHTMLInputStream(
-						tempFinalInputStream) : tempFinalInputStream);
+				InputSource tempInputSource = new InputSource(
+						tempIsHtml ? new FilteringHTMLInputStream(tempFinalInputStream) : tempFinalInputStream);
 
 				try {
 					tempXmlReader.parse(tempInputSource);
@@ -148,9 +173,9 @@ public class IntegrityTestResultParser extends DefaultTestResultParserImpl {
 				}
 
 				tempCompoundTestResult.addChild(new IntegrityTestResult(tempCompoundTestResult, tempFile.getName(),
-						tempContentHandler.getTestName(), tempBuffer, tempContentType, tempContentHandler
-								.getSuccessCount(), tempContentHandler.getFailureCount(), tempContentHandler
-								.getTestExceptionCount(), tempContentHandler.getCallExceptionCount()));
+						tempContentHandler.getTestName(), tempBuffer, tempContentType,
+						tempContentHandler.getSuccessCount(), tempContentHandler.getFailureCount(),
+						tempContentHandler.getTestExceptionCount(), tempContentHandler.getCallExceptionCount()));
 			} catch (SAXException exc) {
 				aListener.getLogger().println("Exception while parsing Integrity result: " + exc.getMessage());
 			} finally {
@@ -161,6 +186,71 @@ public class IntegrityTestResultParser extends DefaultTestResultParserImpl {
 		}
 
 		return tempCompoundTestResult;
+	}
+
+	@SuppressWarnings("rawtypes")
+	@Override
+	public TestResult parse(final String testResultLocations, final AbstractBuild build, final Launcher launcher,
+			final TaskListener listener) throws InterruptedException, IOException {
+		// We override the superclasses' parse method here with basically a copy of the superclasses' code, but two very
+		// important changes:
+		// - The "build" parameter is not included in the closure created when instantiating the FileCallable anonymous
+		// inner class below
+		// - The final call to "parse" omits the parameter "launcher" that was included there in the original method,
+		// which also results in the contents of that parameter not being included in the closure
+		// Both of these changes were necessary to fix issue #8 - a NotSerializableException thrown in case of a build
+		// running on a slave (and thus parsing test results on a slave, too). Neither the Jenkins-supplied subclasses
+		// of AbstractBuild nor the subclasses of Launcher support serialization, and since these classes are
+		// Jenkins-provided, a plugin cannot simply make those serializable. Therefore, by requiring the serialization
+		// of these objects implicitly via inclusion of the instances in the closure created by the instantiation of the
+		// to-be-serialized FileCallable-based anonymous inner class, the superclasses' base code effectively makes it
+		// impossible to create a test result analysis plugin that plays well in master-slave constellations. THANKS,
+		// JENKINS, FOR SUCKING BALLS IN THIS REGARD!
+		// See also this (loosely related) StackOverflow discussion:
+		// http://stackoverflow.com/questions/17727054/cannot-access-file-on-jenkins-slave
+		final long buildTime = build.getTimestamp().getTimeInMillis();
+
+		return build.getWorkspace().act(new FileCallable<TestResult>() {
+
+			private static final long serialVersionUID = 6552533744626807645L;
+
+			final boolean ignoreTimestampCheck = IGNORE_TIMESTAMP_CHECK; // so that the property can be set on the
+																			// master
+			final long nowMaster = System.currentTimeMillis();
+
+			public TestResult invoke(File dir, VirtualChannel channel) throws IOException, InterruptedException {
+				final long nowSlave = System.currentTimeMillis();
+
+				// files older than this timestamp is considered stale
+				long localBuildTime = buildTime + (nowSlave - nowMaster);
+
+				FilePath[] paths = new FilePath(dir).list(testResultLocations);
+				if (paths.length == 0) {
+					throw new AbortException(
+							"No test reports that matches " + testResultLocations + " found. Configuration error?");
+				}
+
+				// since dir is local, paths all point to the local files
+				List<File> files = new ArrayList<File>(paths.length);
+				for (FilePath path : paths) {
+					File report = new File(path.getRemote());
+					if (ignoreTimestampCheck || localBuildTime - 3000 /* error margin */ < report.lastModified()) {
+						// this file is created during this build
+						files.add(report);
+					}
+				}
+
+				if (files.isEmpty()) {
+					// none of the files were new
+					throw new AbortException(String.format(
+							"Test reports were found but none of them are new. Did tests run? \n"
+									+ "For example, %s is %s old\n",
+							paths[0].getRemote(), Util.getTimeSpanString(localBuildTime - paths[0].lastModified())));
+				}
+
+				return parse(files, listener);
+			}
+		});
 	}
 
 	private static class EndParsingException extends SAXException {
