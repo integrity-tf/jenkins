@@ -7,12 +7,6 @@
  *******************************************************************************/
 package de.gebit.integrity;
 
-import hudson.model.AbstractBuild;
-import hudson.tasks.test.TabulatedResult;
-import hudson.tasks.test.AbstractTestResultAction;
-import hudson.tasks.test.TestObject;
-import hudson.tasks.test.TestResult;
-
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -21,6 +15,12 @@ import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
+
+import hudson.model.AbstractBuild;
+import hudson.tasks.test.AbstractTestResultAction;
+import hudson.tasks.test.TabulatedResult;
+import hudson.tasks.test.TestObject;
+import hudson.tasks.test.TestResult;
 
 /**
  * This result object encapsulates a single parsed Integrity test result file. There is a compound class which combines
@@ -109,7 +109,8 @@ public class IntegrityTestResult extends TabulatedResult {
 	 */
 	// SUPPRESS CHECKSTYLE ParameterNumber
 	public IntegrityTestResult(TestObject aParent, String aName, String aDisplayName, byte[] someRawData,
-			String aContentType, int aSuccessCount, int aFailureCount, int aTestExceptionCount, int aCallExceptionCount) {
+			String aContentType, int aSuccessCount, int aFailureCount, int aTestExceptionCount,
+			int aCallExceptionCount) {
 		super();
 		this.parent = aParent;
 		this.name = aName;
@@ -182,8 +183,8 @@ public class IntegrityTestResult extends TabulatedResult {
 			int tempTotalRead = 0;
 			do {
 				tempTotalRead += tempRead;
-				tempRead = tempGzipStream.read(tempUncompressedRawData, tempTotalRead, tempUncompressedRawData.length
-						- tempTotalRead);
+				tempRead = tempGzipStream.read(tempUncompressedRawData, tempTotalRead,
+						tempUncompressedRawData.length - tempTotalRead);
 			} while (tempRead >= 0 && tempTotalRead < tempUncompressedRawData.length);
 
 			return tempUncompressedRawData;
@@ -226,14 +227,17 @@ public class IntegrityTestResult extends TabulatedResult {
 		}
 	}
 
+	@Override
 	public int getPassCount() {
 		return successCount;
 	}
 
+	@Override
 	public int getFailCount() {
 		return failureCount;
 	}
 
+	@Override
 	public int getSkipCount() {
 		return testExceptionCount;
 	}
@@ -250,6 +254,7 @@ public class IntegrityTestResult extends TabulatedResult {
 		return callExceptionCount;
 	}
 
+	@Override
 	public int getTotalCount() {
 		return getPassCount() + getFailCount() + getSkipCount();
 	}

@@ -98,6 +98,7 @@ public class IntegrityTestResultAction extends AbstractTestResultAction<Integrit
 	/**
 	 * Fetches the result (if necessary from disk).
 	 */
+	@Override
 	public synchronized IntegrityCompoundTestResult getResult() {
 		if (result == null) {
 			result = loadFromDisk();
@@ -106,10 +107,12 @@ public class IntegrityTestResultAction extends AbstractTestResultAction<Integrit
 		return result;
 	}
 
+	@Override
 	public String getDisplayName() {
 		return de.gebit.integrity.Messages.TestResultActionDisplayName();
 	}
 
+	@Override
 	@Exported(visibility = 2)
 	public String getUrlName() {
 		return ACTION_URL;
@@ -135,6 +138,7 @@ public class IntegrityTestResultAction extends AbstractTestResultAction<Integrit
 	/**
 	 * Returns the health report of this build, based on the result.
 	 */
+	@Override
 	public HealthReport getBuildHealth() {
 		final int tempTotalCount = getTotalCount();
 		final int tempFailCount = getSkipCount() + getFailCount();

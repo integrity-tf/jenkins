@@ -7,21 +7,10 @@
  *******************************************************************************/
 package de.gebit.integrity;
 
-import hudson.model.AbstractBuild;
-import hudson.tasks.test.TestResult;
-import hudson.util.ChartUtil;
-import hudson.util.ColorPalette;
-import hudson.util.DataSetBuilder;
-import hudson.util.Graph;
-import hudson.util.ShiftedCategoryAxis;
-import hudson.util.StackedAreaRenderer2;
-
 import java.awt.Color;
 import java.awt.Paint;
 import java.util.ArrayList;
 import java.util.List;
-
-import jenkins.model.Jenkins;
 
 import org.jfree.chart.ChartFactory;
 import org.jfree.chart.JFreeChart;
@@ -34,6 +23,16 @@ import org.jfree.chart.renderer.category.StackedAreaRenderer;
 import org.jfree.data.category.CategoryDataset;
 import org.jfree.ui.RectangleInsets;
 import org.kohsuke.stapler.Stapler;
+
+import hudson.model.AbstractBuild;
+import hudson.tasks.test.TestResult;
+import hudson.util.ChartUtil;
+import hudson.util.ColorPalette;
+import hudson.util.DataSetBuilder;
+import hudson.util.Graph;
+import hudson.util.ShiftedCategoryAxis;
+import hudson.util.StackedAreaRenderer2;
+import jenkins.model.Jenkins;
 
 /**
  * The history graph view for Integrity result history. Heavily based on the standard test history view in Jenkins,
@@ -107,6 +106,7 @@ public class IntegrityHistory {
 	 */
 	public Graph getCountGraph() {
 		return new GraphImpl("") {
+			@Override
 			protected DataSetBuilder<String, ChartLabel> createDataSet() {
 				DataSetBuilder<String, ChartLabel> tempData = new DataSetBuilder<String, ChartLabel>();
 
@@ -143,6 +143,7 @@ public class IntegrityHistory {
 
 		protected abstract DataSetBuilder<String, ChartLabel> createDataSet();
 
+		@Override
 		protected JFreeChart createGraph() {
 			final CategoryDataset dataset = createDataSet().build();
 
