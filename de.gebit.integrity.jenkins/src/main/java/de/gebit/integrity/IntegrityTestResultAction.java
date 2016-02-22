@@ -7,14 +7,6 @@
  *******************************************************************************/
 package de.gebit.integrity;
 
-import hudson.XmlFile;
-import hudson.model.BuildListener;
-import hudson.model.HealthReport;
-import hudson.model.AbstractBuild;
-import hudson.tasks.test.AbstractTestResultAction;
-import hudson.util.HeapSpaceStringConverter;
-import hudson.util.XStream2;
-
 import java.io.File;
 import java.io.IOException;
 
@@ -24,14 +16,22 @@ import org.kohsuke.stapler.export.Exported;
 
 import com.thoughtworks.xstream.XStream;
 
+import hudson.XmlFile;
+import hudson.model.AbstractBuild;
+import hudson.model.BuildListener;
+import hudson.model.HealthReport;
+import hudson.tasks.test.AbstractTestResultAction;
+import hudson.util.HeapSpaceStringConverter;
+import hudson.util.XStream2;
+
 /**
  * This result action is responsible for displaying the test result overview on the page of individual builds.
  * 
  * @author Rene Schneider - initial API and implementation
  * 
  */
-public class IntegrityTestResultAction extends AbstractTestResultAction<IntegrityTestResultAction> implements
-		StaplerProxy {
+public class IntegrityTestResultAction extends AbstractTestResultAction<IntegrityTestResultAction>
+		implements StaplerProxy {
 
 	/**
 	 * The result to display.
@@ -80,7 +80,7 @@ public class IntegrityTestResultAction extends AbstractTestResultAction<Integrit
 	}
 
 	private XmlFile getDataFile() {
-		return new XmlFile(XSTREAM, new File(owner.getRootDir(), "integrityResult.xml"));
+		return new XmlFile(XSTREAM, new File(owner.getRootDir(), "integrityCompoundResult.xml"));
 	}
 
 	private IntegrityCompoundTestResult loadFromDisk() {

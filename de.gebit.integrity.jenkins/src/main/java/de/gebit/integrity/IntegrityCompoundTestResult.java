@@ -7,18 +7,26 @@
  *******************************************************************************/
 package de.gebit.integrity;
 
-import hudson.model.AbstractBuild;
-import hudson.tasks.test.TabulatedResult;
-import hudson.tasks.test.AbstractTestResultAction;
-import hudson.tasks.test.TestObject;
-import hudson.tasks.test.TestResult;
-
+import java.io.File;
+import java.io.IOException;
+import java.io.ObjectOutputStream;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
 import org.kohsuke.stapler.StaplerRequest;
 import org.kohsuke.stapler.StaplerResponse;
+
+import com.thoughtworks.xstream.XStream;
+
+import hudson.XmlFile;
+import hudson.model.AbstractBuild;
+import hudson.tasks.test.AbstractTestResultAction;
+import hudson.tasks.test.TabulatedResult;
+import hudson.tasks.test.TestObject;
+import hudson.tasks.test.TestResult;
+import hudson.util.HeapSpaceStringConverter;
+import hudson.util.XStream2;
 
 /**
  * This test result combines multiple single test results into one. The single test results are children of this
@@ -35,14 +43,54 @@ public class IntegrityCompoundTestResult extends TabulatedResult {
 	private static final long serialVersionUID = 5660708469068256878L;
 
 	/**
+	 * The XStream instance used for result persistence.
+	 */
+	private static final XStream XSTREAM = new XStream2();
+
+	static {
+		XSTREAM.alias("result", IntegrityCompoundTestResult.class);
+		XSTREAM.registerConverter(new HeapSpaceStringConverter(), 100);
+	}
+
+	/**
 	 * The inner test results.
 	 */
-	private List<IntegrityTestResult> tempChildren = new ArrayList<IntegrityTestResult>();
+	private transient List<IntegrityTestResult> tempChildren;
 
 	/**
 	 * Whether we already updated child links.
 	 */
 	private transient boolean hasUpdatedChildLinks;
+
+	/**
+	 * Whether the currently loaded children are persisted.
+	 */
+	private transient boolean hasPersistedChildren = true;
+
+	/**
+	 * Total count of failed tests over all children.
+	 */
+	private int failCount;
+
+	/**
+	 * Total count of passed tests over all children.
+	 */
+	private int passCount;
+
+	/**
+	 * Total count of skipped tests over all children.
+	 */
+	private int skipCount;
+
+	/**
+	 * Total count of exceptions in tests over all children.
+	 */
+	private int testExceptionCount;
+
+	/**
+	 * Total count of exceptions in calls over all children.
+	 */
+	private int callExceptionCount;
 
 	/**
 	 * The action owning this result.
@@ -56,8 +104,71 @@ public class IntegrityCompoundTestResult extends TabulatedResult {
 	 *            the child to add
 	 */
 	public void addChild(IntegrityTestResult aChild) {
+		if (tempChildren == null) {
+			tempChildren = new ArrayList<IntegrityTestResult>();
+		}
+
 		tempChildren.add(aChild);
 		aChild.setParent(this);
+		hasPersistedChildren = false;
+	}
+
+	private XmlFile getXmlFile() {
+		return new XmlFile(XSTREAM, new File(getOwner().getRootDir(), "integrityResultData.xml"));
+	}
+
+	@SuppressWarnings("unchecked")
+	private void loadChildren() {
+		try {
+			tempChildren = (List<IntegrityTestResult>) getXmlFile().read();
+		} catch (IOException exc) {
+			exc.printStackTrace();
+			tempChildren = new ArrayList<IntegrityTestResult>();
+		}
+
+		hasPersistedChildren = true;
+	}
+
+	private void persistChildren() {
+		if (tempChildren != null) {
+			try {
+				getXmlFile().write(tempChildren);
+			} catch (IOException exc) {
+				exc.printStackTrace();
+			}
+		}
+
+		hasPersistedChildren = true;
+	}
+
+	private void updateCounts() {
+		passCount = 0;
+		failCount = 0;
+		skipCount = 0;
+		testExceptionCount = 0;
+		callExceptionCount = 0;
+
+		if (hasChildren()) {
+			for (TestResult tempResult : getChildren()) {
+				passCount += tempResult.getPassCount();
+				failCount += tempResult.getFailCount();
+				skipCount += tempResult.getSkipCount();
+				if (tempResult instanceof IntegrityTestResult) {
+					testExceptionCount += ((IntegrityTestResult) tempResult).getTestExceptionCount();
+					callExceptionCount += ((IntegrityTestResult) tempResult).getCallExceptionCount();
+				}
+			}
+		}
+	}
+
+	private void writeObject(ObjectOutputStream stream) throws IOException {
+		updateCounts();
+
+		stream.defaultWriteObject();
+
+		if (!hasPersistedChildren) {
+			persistChildren();
+		}
 	}
 
 	public String getDisplayName() {
@@ -120,11 +231,15 @@ public class IntegrityCompoundTestResult extends TabulatedResult {
 
 	@Override
 	public boolean hasChildren() {
-		return tempChildren.size() > 0;
+		return getChildren().size() > 0;
 	}
 
 	@Override
 	public Collection<? extends TestResult> getChildren() {
+		if (tempChildren == null) {
+			loadChildren();
+		}
+
 		if (!hasUpdatedChildLinks) {
 			for (IntegrityTestResult tempChild : tempChildren) {
 				tempChild.setParent(this);
@@ -137,79 +252,25 @@ public class IntegrityCompoundTestResult extends TabulatedResult {
 
 	@Override
 	public int getFailCount() {
-		if (hasChildren()) {
-			int tempCount = 0;
-			for (TestResult tempResult : getChildren()) {
-				tempCount += tempResult.getFailCount();
-			}
-			return tempCount;
-		}
-
-		return super.getFailCount();
+		return failCount;
 	}
 
 	@Override
 	public int getPassCount() {
-		if (hasChildren()) {
-			int tempCount = 0;
-			for (TestResult tempResult : getChildren()) {
-				tempCount += tempResult.getPassCount();
-			}
-			return tempCount;
-		}
-
-		return super.getPassCount();
+		return passCount;
 	}
 
 	@Override
 	public int getSkipCount() {
-		if (hasChildren()) {
-			int tempCount = 0;
-			for (TestResult tempResult : getChildren()) {
-				tempCount += tempResult.getSkipCount();
-			}
-			return tempCount;
-		}
-
-		return super.getSkipCount();
+		return skipCount;
 	}
 
-	/**
-	 * Returns the test exception count.
-	 * 
-	 * @return
-	 */
 	public int getTestExceptionCount() {
-		if (hasChildren()) {
-			int tempCount = 0;
-			for (TestResult tempResult : getChildren()) {
-				if (tempResult instanceof IntegrityTestResult) {
-					tempCount += ((IntegrityTestResult) tempResult).getTestExceptionCount();
-				}
-			}
-			return tempCount;
-		}
-
-		return 0;
+		return testExceptionCount;
 	}
 
-	/**
-	 * Returns the call exception count.
-	 * 
-	 * @return
-	 */
 	public int getCallExceptionCount() {
-		if (hasChildren()) {
-			int tempCount = 0;
-			for (TestResult tempResult : getChildren()) {
-				if (tempResult instanceof IntegrityTestResult) {
-					tempCount += ((IntegrityTestResult) tempResult).getCallExceptionCount();
-				}
-			}
-			return tempCount;
-		}
-
-		return 0;
+		return callExceptionCount;
 	}
 
 	/**
