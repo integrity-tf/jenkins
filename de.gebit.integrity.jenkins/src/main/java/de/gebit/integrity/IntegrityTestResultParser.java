@@ -16,6 +16,10 @@ import java.io.InputStream;
 import java.io.SequenceInputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.SAXParser;
@@ -71,117 +75,154 @@ public class IntegrityTestResultParser extends DefaultTestResultParserImpl {
 	 * @throws InterruptedException
 	 * @throws IOException
 	 */
-	protected TestResult parse(List<File> someReportFiles, TaskListener aListener)
-			throws InterruptedException, IOException {
+	protected TestResult parse(List<File> someReportFiles, final TaskListener aListener) {
 		final IntegrityCompoundTestResult tempCompoundTestResult = new IntegrityCompoundTestResult();
 
-		for (File tempFile : someReportFiles) {
-			aListener.getLogger().println("Now parsing Integrity test result file: " + tempFile.getAbsolutePath());
+		ExecutorService tempExecutor = new ThreadPoolExecutor(Runtime.getRuntime().availableProcessors(),
+				Integer.MAX_VALUE, 10L, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>());
 
-			FileReader tempFileReader = null;
+		for (final File tempFile : someReportFiles) {
+			Runnable tempRunnable = new Runnable() {
+
+				public void run() {
+					aListener.getLogger().println("Now parsing Integrity test result file " + tempFile.getAbsolutePath()
+							+ " using Thread '" + Thread.currentThread().getName() + "'");
+
+					FileReader tempFileReader = null;
+					try {
+						// Read the file into memory. Mainly done to archive it in the result, but the buffer is also
+						// fed into a SAX parser below to prevent reading the file twice.
+						FileInputStream tempInputStream = new FileInputStream(tempFile);
+						final byte[] tempBuffer = new byte[(int) tempFile.length()];
+						try {
+							int tempTotalRead = 0;
+							int tempRead = 0;
+							while (tempTotalRead < tempBuffer.length && tempRead >= 0) {
+								tempRead = tempInputStream.read(tempBuffer, tempTotalRead,
+										tempBuffer.length - tempTotalRead);
+								if (tempRead > 0) {
+									tempTotalRead += tempRead;
+								}
+							}
+						} finally {
+							tempInputStream.close();
+						}
+
+						String tempContentType = null;
+						int tempXMLDataStartPos = 0;
+						int tempDoctypeEndPos = 0;
+						boolean tempIsHtml = false;
+						if (tempBuffer.length > 10) {
+							if (tempBuffer[0] == '<' && tempBuffer[1] == '?' && tempBuffer[2] == 'x'
+									&& tempBuffer[3] == 'm' && tempBuffer[4] == 'l') {
+								// This seems to be XML data
+								tempContentType = "text/xml;charset=UTF-8";
+							} else {
+								// This seems to be HTML
+								tempContentType = "text/html;charset=UTF-8";
+								tempIsHtml = true;
+
+								// Find out where the DOCTYPE declaration ends
+								if ("<!DOCTYPE ".equals(new String(tempBuffer, 0, 10, "US-ASCII"))) {
+									do {
+										tempDoctypeEndPos++;
+									} while (tempDoctypeEndPos < tempBuffer.length
+											&& tempBuffer[tempDoctypeEndPos - 1] != '>');
+									tempXMLDataStartPos = tempDoctypeEndPos; // XML cannot start before the DOCTYPE
+								}
+
+								// To increase robustness, we forward the stream to the start of the actual XML data
+								// embedded in the HTML
+								while (tempXMLDataStartPos < tempBuffer.length - 10
+										&& !(tempBuffer[tempXMLDataStartPos] == '<'
+												&& tempBuffer[tempXMLDataStartPos + 1] == 'x'
+												&& tempBuffer[tempXMLDataStartPos + 2] == 'm'
+												&& tempBuffer[tempXMLDataStartPos + 3] == 'l'
+												&& tempBuffer[tempXMLDataStartPos + 4] == 'd'
+												&& tempBuffer[tempXMLDataStartPos + 5] == 'a'
+												&& tempBuffer[tempXMLDataStartPos + 6] == 't'
+												&& tempBuffer[tempXMLDataStartPos + 7] == 'a'
+												&& tempBuffer[tempXMLDataStartPos + 8] == ' ')) {
+									tempXMLDataStartPos++;
+								}
+							}
+						}
+
+						final IntegrityContentHandler tempContentHandler = new IntegrityContentHandler();
+
+						SAXParser tempParser;
+						try {
+							tempParser = SAXParserFactory.newInstance().newSAXParser();
+						} catch (ParserConfigurationException exc) {
+							throw new IOException(exc);
+						}
+						XMLReader tempXmlReader = tempParser.getXMLReader();
+						tempXmlReader.setContentHandler(tempContentHandler);
+						tempXmlReader.setFeature("http://xml.org/sax/features/validation", false);
+						tempXmlReader.setFeature("http://apache.org/xml/features/nonvalidating/load-dtd-grammar",
+								false);
+						tempXmlReader.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd",
+								false);
+
+						InputStream tempFinalInputStream;
+						if (tempDoctypeEndPos > 0 && tempXMLDataStartPos < tempBuffer.length) {
+							// If we have an end position for the DOCTYPE declaration and a valid XML data start, just
+							// sequence the doctype declaration with the XML data, thereby eliminating everything in
+							// between that could cause trouble
+							tempFinalInputStream = new SequenceInputStream(
+									new ByteArrayInputStream(tempBuffer, 0, tempDoctypeEndPos),
+									new ByteArrayInputStream(tempBuffer, tempXMLDataStartPos,
+											tempBuffer.length - tempXMLDataStartPos));
+						} else {
+							// Just start parsing where the XML begins
+							tempFinalInputStream = new ByteArrayInputStream(tempBuffer, tempXMLDataStartPos,
+									tempBuffer.length - tempXMLDataStartPos);
+						}
+
+						InputSource tempInputSource = new InputSource(
+								tempIsHtml ? new FilteringHTMLInputStream(tempFinalInputStream) : tempFinalInputStream);
+
+						try {
+							tempXmlReader.parse(tempInputSource);
+						} catch (EndParsingException exc) {
+							// this isn't an error, but expected to abort parsing
+						}
+
+						tempCompoundTestResult.addChild(new IntegrityTestResult(tempCompoundTestResult,
+								tempFile.getName(), tempContentHandler.getTestName(), tempBuffer, tempContentType,
+								tempContentHandler.getSuccessCount(), tempContentHandler.getFailureCount(),
+								tempContentHandler.getTestExceptionCount(),
+								tempContentHandler.getCallExceptionCount()));
+
+						aListener.getLogger().println(
+								"Successfully parsed Integrity test result file " + tempFile.getAbsolutePath());
+					} catch (Exception exc) {
+						aListener.getLogger().println("Exception while parsing Integrity result: " + exc.getMessage());
+					} finally {
+						if (tempFileReader != null) {
+							try {
+								tempFileReader.close();
+							} catch (IOException exc) {
+								// ignored
+							}
+						}
+					}
+				}
+			};
+
+			tempExecutor.execute(tempRunnable);
+		}
+
+		tempExecutor.shutdown();
+
+		while (!tempExecutor.isTerminated()) {
 			try {
-				// Read the file into memory. Mainly done to archive it in the result, but the buffer is also fed into
-				// a SAX parser below to prevent reading the file twice.
-				FileInputStream tempInputStream = new FileInputStream(tempFile);
-				final byte[] tempBuffer = new byte[(int) tempFile.length()];
-				try {
-					int tempTotalRead = 0;
-					int tempRead = 0;
-					while (tempTotalRead < tempBuffer.length && tempRead >= 0) {
-						tempRead = tempInputStream.read(tempBuffer, tempTotalRead, tempBuffer.length - tempTotalRead);
-						if (tempRead > 0) {
-							tempTotalRead += tempRead;
-						}
-					}
-				} finally {
-					tempInputStream.close();
+				if (!tempExecutor.awaitTermination(1, TimeUnit.DAYS)) {
+					throw new RuntimeException("Integrity test result parsing threads did not terminate in time :-( "
+							+ "since the timeout is obscenely high, this should never happen in practice");
 				}
-
-				String tempContentType = null;
-				int tempXMLDataStartPos = 0;
-				int tempDoctypeEndPos = 0;
-				boolean tempIsHtml = false;
-				if (tempBuffer.length > 10) {
-					if (tempBuffer[0] == '<' && tempBuffer[1] == '?' && tempBuffer[2] == 'x' && tempBuffer[3] == 'm'
-							&& tempBuffer[4] == 'l') {
-						// This seems to be XML data
-						tempContentType = "text/xml;charset=UTF-8";
-					} else {
-						// This seems to be HTML
-						tempContentType = "text/html;charset=UTF-8";
-						tempIsHtml = true;
-
-						// Find out where the DOCTYPE declaration ends
-						if ("<!DOCTYPE ".equals(new String(tempBuffer, 0, 10, "US-ASCII"))) {
-							do {
-								tempDoctypeEndPos++;
-							} while (tempDoctypeEndPos < tempBuffer.length && tempBuffer[tempDoctypeEndPos - 1] != '>');
-							tempXMLDataStartPos = tempDoctypeEndPos; // XML cannot start before the DOCTYPE
-						}
-
-						// To increase robustness, we forward the stream to the start of the actual XML data embedded in
-						// the HTML
-						while (tempXMLDataStartPos < tempBuffer.length - 10 && !(tempBuffer[tempXMLDataStartPos] == '<'
-								&& tempBuffer[tempXMLDataStartPos + 1] == 'x'
-								&& tempBuffer[tempXMLDataStartPos + 2] == 'm'
-								&& tempBuffer[tempXMLDataStartPos + 3] == 'l'
-								&& tempBuffer[tempXMLDataStartPos + 4] == 'd'
-								&& tempBuffer[tempXMLDataStartPos + 5] == 'a'
-								&& tempBuffer[tempXMLDataStartPos + 6] == 't'
-								&& tempBuffer[tempXMLDataStartPos + 7] == 'a'
-								&& tempBuffer[tempXMLDataStartPos + 8] == ' ')) {
-							tempXMLDataStartPos++;
-						}
-					}
-				}
-
-				final IntegrityContentHandler tempContentHandler = new IntegrityContentHandler();
-
-				SAXParser tempParser;
-				try {
-					tempParser = SAXParserFactory.newInstance().newSAXParser();
-				} catch (ParserConfigurationException exc) {
-					throw new IOException(exc);
-				}
-				XMLReader tempXmlReader = tempParser.getXMLReader();
-				tempXmlReader.setContentHandler(tempContentHandler);
-				tempXmlReader.setFeature("http://xml.org/sax/features/validation", false);
-				tempXmlReader.setFeature("http://apache.org/xml/features/nonvalidating/load-dtd-grammar", false);
-				tempXmlReader.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
-
-				InputStream tempFinalInputStream;
-				if (tempDoctypeEndPos > 0 && tempXMLDataStartPos < tempBuffer.length) {
-					// If we have an end position for the DOCTYPE declaration and a valid XML data start, just sequence
-					// the doctype declaration with the XML data, thereby eliminating everything in between that could
-					// cause trouble
-					tempFinalInputStream = new SequenceInputStream(
-							new ByteArrayInputStream(tempBuffer, 0, tempDoctypeEndPos), new ByteArrayInputStream(
-									tempBuffer, tempXMLDataStartPos, tempBuffer.length - tempXMLDataStartPos));
-				} else {
-					// Just start parsing where the XML begins
-					tempFinalInputStream = new ByteArrayInputStream(tempBuffer, tempXMLDataStartPos,
-							tempBuffer.length - tempXMLDataStartPos);
-				}
-
-				InputSource tempInputSource = new InputSource(
-						tempIsHtml ? new FilteringHTMLInputStream(tempFinalInputStream) : tempFinalInputStream);
-
-				try {
-					tempXmlReader.parse(tempInputSource);
-				} catch (EndParsingException exc) {
-					// this isn't an error, but expected to abort parsing
-				}
-
-				tempCompoundTestResult.addChild(new IntegrityTestResult(tempCompoundTestResult, tempFile.getName(),
-						tempContentHandler.getTestName(), tempBuffer, tempContentType,
-						tempContentHandler.getSuccessCount(), tempContentHandler.getFailureCount(),
-						tempContentHandler.getTestExceptionCount(), tempContentHandler.getCallExceptionCount()));
-			} catch (SAXException exc) {
-				aListener.getLogger().println("Exception while parsing Integrity result: " + exc.getMessage());
-			} finally {
-				if (tempFileReader != null) {
-					tempFileReader.close();
-				}
+			} catch (InterruptedException exc) {
+				// ignored
 			}
 		}
 
