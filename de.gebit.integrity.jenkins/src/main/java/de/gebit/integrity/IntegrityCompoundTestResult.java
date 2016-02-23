@@ -12,6 +12,8 @@ import java.io.IOException;
 import java.io.ObjectOutputStream;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 
 import org.kohsuke.stapler.StaplerRequest;
@@ -103,7 +105,7 @@ public class IntegrityCompoundTestResult extends TabulatedResult {
 	 * @param aChild
 	 *            the child to add
 	 */
-	public void addChild(IntegrityTestResult aChild) {
+	public synchronized void addChild(IntegrityTestResult aChild) {
 		if (tempChildren == null) {
 			tempChildren = new ArrayList<IntegrityTestResult>();
 		}
@@ -111,10 +113,24 @@ public class IntegrityCompoundTestResult extends TabulatedResult {
 		tempChildren.add(aChild);
 		aChild.setParent(this);
 		hasPersistedChildren = false;
+
+		sortChildren();
 	}
 
 	private XmlFile getXmlFile() {
 		return new XmlFile(XSTREAM, new File(getOwner().getRootDir(), "integrityResultData.xml"));
+	}
+
+	private void sortChildren() {
+		Collections.sort(tempChildren, new Comparator<IntegrityTestResult>() {
+
+			public int compare(IntegrityTestResult o1, IntegrityTestResult o2) {
+				String tempFirstName = o1.getDisplayName() != null ? o1.getDisplayName() : "";
+				String tempSecondName = o2.getDisplayName() != null ? o2.getDisplayName() : "";
+
+				return tempFirstName.compareToIgnoreCase(tempSecondName);
+			}
+		});
 	}
 
 	@SuppressWarnings("unchecked")
@@ -127,6 +143,7 @@ public class IntegrityCompoundTestResult extends TabulatedResult {
 		}
 
 		hasPersistedChildren = true;
+		sortChildren();
 	}
 
 	private void persistChildren() {
