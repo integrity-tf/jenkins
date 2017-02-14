@@ -17,7 +17,6 @@ import org.kohsuke.stapler.export.Exported;
 import com.thoughtworks.xstream.XStream;
 
 import hudson.XmlFile;
-import hudson.model.AbstractBuild;
 import hudson.model.BuildListener;
 import hudson.model.HealthReport;
 import hudson.tasks.test.AbstractTestResultAction;
@@ -56,16 +55,14 @@ public class IntegrityTestResultAction extends AbstractTestResultAction<Integrit
 	/**
 	 * Creates a new instance.
 	 * 
-	 * @param anOwner
-	 *            the owning build
 	 * @param aResult
 	 *            the compound test result to display
 	 * @param aListener
 	 *            the listener
 	 */
-	public IntegrityTestResultAction(AbstractBuild<?, ?> anOwner, IntegrityCompoundTestResult aResult,
+	public IntegrityTestResultAction(IntegrityCompoundTestResult aResult,
 			BuildListener aListener) {
-		super(anOwner);
+		result = aResult;
 		synchronized (this) {
 			aResult.setParentAction(this);
 
@@ -74,13 +71,15 @@ public class IntegrityTestResultAction extends AbstractTestResultAction<Integrit
 			} catch (IOException exc) {
 				exc.printStackTrace(aListener.fatalError("Failed to save the Integrity test result"));
 			}
-
-			result = aResult;
 		}
 	}
 
+	private File getRootDir() {
+		return new File(result.getRunRootDir());
+	}
+
 	private XmlFile getDataFile() {
-		return new XmlFile(XSTREAM, new File(owner.getRootDir(), "integrityCompoundResult.xml"));
+		return new XmlFile(XSTREAM, new File(getRootDir(), "integrityCompoundResult.xml"));
 	}
 
 	private IntegrityCompoundTestResult loadFromDisk() {
@@ -89,7 +88,7 @@ public class IntegrityTestResultAction extends AbstractTestResultAction<Integrit
 			tempResult = (IntegrityCompoundTestResult) getDataFile().read();
 		} catch (IOException exc) {
 			exc.printStackTrace();
-			tempResult = new IntegrityCompoundTestResult();
+			tempResult = new IntegrityCompoundTestResult(getRootDir().getAbsolutePath());
 		}
 		tempResult.setParentAction(this);
 		return tempResult;
@@ -118,6 +117,7 @@ public class IntegrityTestResultAction extends AbstractTestResultAction<Integrit
 		return ACTION_URL;
 	}
 
+	@Override
 	public Object getTarget() {
 		return result;
 	}

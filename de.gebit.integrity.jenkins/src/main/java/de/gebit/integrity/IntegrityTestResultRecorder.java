@@ -7,22 +7,6 @@
  *******************************************************************************/
 package de.gebit.integrity;
 
-import hudson.AbortException;
-import hudson.Extension;
-import hudson.FilePath;
-import hudson.Launcher;
-import hudson.model.Action;
-import hudson.model.BuildListener;
-import hudson.model.Result;
-import hudson.model.AbstractBuild;
-import hudson.model.AbstractProject;
-import hudson.tasks.BuildStepDescriptor;
-import hudson.tasks.BuildStepMonitor;
-import hudson.tasks.Publisher;
-import hudson.tasks.Recorder;
-import hudson.tasks.junit.Messages;
-import hudson.util.FormValidation;
-
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
@@ -30,6 +14,21 @@ import java.util.Collections;
 import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
+
+import hudson.AbortException;
+import hudson.Extension;
+import hudson.FilePath;
+import hudson.Launcher;
+import hudson.model.AbstractBuild;
+import hudson.model.AbstractProject;
+import hudson.model.Action;
+import hudson.model.BuildListener;
+import hudson.model.Result;
+import hudson.tasks.BuildStepDescriptor;
+import hudson.tasks.BuildStepMonitor;
+import hudson.tasks.Publisher;
+import hudson.tasks.Recorder;
+import hudson.util.FormValidation;
 
 /**
  * The result recorder for Integrity test results. This is the main class of the Integrity Test Result plugin - this
@@ -57,8 +56,7 @@ public class IntegrityTestResultRecorder extends Recorder {
 	/**
 	 * Creates a new instance.
 	 * 
-	 * @param testResultFileNamePattern
-	 *            the result file name pattern to use
+	 * @param testResultFileNamePattern the result file name pattern to use
 	 */
 	@DataBoundConstructor
 	// SUPPRESS CHECKSTYLE LONG ParameterNames
@@ -81,6 +79,7 @@ public class IntegrityTestResultRecorder extends Recorder {
 		return failOnTestErrors;
 	}
 
+	@Override
 	public BuildStepMonitor getRequiredMonitorService() {
 		return BuildStepMonitor.NONE;
 	}
@@ -93,7 +92,7 @@ public class IntegrityTestResultRecorder extends Recorder {
 	@Override
 	public Collection<Action> getProjectActions(AbstractProject<?, ?> aProject) {
 		// SUPPRESS CHECKSTYLE Whitespace
-		return Collections.<Action> singleton(new IntegrityProjectAction(aProject));
+		return Collections.<Action>singleton(new IntegrityProjectAction(aProject));
 	}
 
 	@Override
@@ -105,13 +104,15 @@ public class IntegrityTestResultRecorder extends Recorder {
 		final String tempExpandedTestResults = aBuild.getEnvironment(aListener).expand(this.testResultFileNamePattern);
 
 		try {
+            FilePath workspace = aBuild.getWorkspace();
 			IntegrityCompoundTestResult tempResult = (IntegrityCompoundTestResult) new IntegrityTestResultParser()
-					.parse(tempExpandedTestResults, aBuild, aLauncher, aListener);
+					.parseResult(tempExpandedTestResults, aBuild, workspace, aLauncher, aListener);
 
 			try {
-				tempResultAction = new IntegrityTestResultAction(aBuild, tempResult, aListener);
+				tempResultAction = new IntegrityTestResultAction(tempResult, aListener);
 			} catch (NullPointerException exc) {
-				throw new AbortException(Messages.JUnitResultArchiver_BadXML(testResultFileNamePattern));
+				throw new AbortException(de.gebit.integrity.Messages.IntegrityTestResultRecorder_BadXML(
+						testResultFileNamePattern));
 			}
 		} catch (AbortException exc) {
 			if (aBuild.getResult() == Result.FAILURE) {
@@ -134,7 +135,7 @@ public class IntegrityTestResultRecorder extends Recorder {
 			return true;
 		}
 
-		aBuild.getActions().add(tempResultAction);
+		aBuild.addAction(tempResultAction);
 
 		if (tempResultAction.getResult().getFailCount() > 0 || tempResultAction.getResult().getSkipCount() > 0
 				|| tempResultAction.getResult().getExceptionCount() > 0) {
@@ -147,9 +148,7 @@ public class IntegrityTestResultRecorder extends Recorder {
 	/**
 	 * This descriptor is used to integrate the {@link IntegrityTestResultRecorder} as a post-build step into Jenkins.
 	 * 
-	 * 
 	 * @author Rene Schneider - initial API and implementation
-	 * 
 	 */
 	@Extension
 	public static class DescriptorImpl extends BuildStepDescriptor<Publisher> {

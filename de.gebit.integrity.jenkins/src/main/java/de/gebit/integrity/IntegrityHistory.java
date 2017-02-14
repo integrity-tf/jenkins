@@ -25,6 +25,7 @@ import org.jfree.ui.RectangleInsets;
 import org.kohsuke.stapler.Stapler;
 
 import hudson.model.AbstractBuild;
+import hudson.model.Run;
 import hudson.tasks.test.TestResult;
 import hudson.util.ChartUtil;
 import hudson.util.ColorPalette;
@@ -82,21 +83,23 @@ public class IntegrityHistory {
 	 */
 	public List<TestResult> getList(int aStart, int anEnd) {
 		List<TestResult> tempList = new ArrayList<TestResult>();
-		int tempEnd = Math.min(anEnd, testResult.getOwner().getParent().getBuilds().size());
-		for (AbstractBuild<?, ?> tempBuild : testResult.getOwner().getParent().getBuilds().subList(aStart, tempEnd)) {
+		int tempEnd = Math.min(anEnd, testResult.getRun().getParent().getBuilds().size());
+		for (Run<?, ?> tempBuild : testResult.getRun().getParent().getBuilds().subList(aStart, tempEnd)) {
 			if (tempBuild.isBuilding()) {
 				continue;
 			}
-			TestResult tempResult = testResult.getResultInBuild(tempBuild);
-			if (tempResult != null) {
-				tempList.add(tempResult);
+			if (tempBuild instanceof AbstractBuild<?,?>) {
+				TestResult tempResult = testResult.getResultInBuild((AbstractBuild<?, ?>) tempBuild);
+				if (tempResult != null) {
+					tempList.add(tempResult);
+				}
 			}
 		}
 		return tempList;
 	}
 
 	public List<TestResult> getList() {
-		return getList(0, testResult.getOwner().getParent().getBuilds().size());
+		return getList(0, testResult.getRun().getParent().getBuilds().size());
 	}
 
 	/**
@@ -199,7 +202,7 @@ public class IntegrityHistory {
 				public String generateToolTip(CategoryDataset aDataset, int aRow, int aColumn) {
 					ChartLabel tempLabel = (ChartLabel) aDataset.getColumnKey(aColumn);
 					TestResult tempResult = tempLabel.result;
-					return tempResult.getOwner().getDisplayName() + ": " + tempResult.getPassCount()
+					return tempResult.getRun().getDisplayName() + ": " + tempResult.getPassCount()
 							+ " successful tests, " + tempResult.getFailCount() + " failures, "
 							+ tempResult.getSkipCount() + " exceptions during tests";
 				}
@@ -241,14 +244,14 @@ public class IntegrityHistory {
 		}
 
 		private void generateUrl() {
-			AbstractBuild<?, ?> tempBuild = result.getOwner();
+			Run<?, ?> tempBuild = result.getRun();
 			String tempBuildLink = tempBuild.getUrl();
 			String tempActionUrl = IntegrityTestResultAction.ACTION_URL;
 			this.url = Jenkins.getInstance().getRootUrl() + tempBuildLink + tempActionUrl + result.getUrl();
 		}
 
 		public int compareTo(ChartLabel anOtherLabel) {
-			return this.result.getOwner().number - anOtherLabel.result.getOwner().number;
+			return this.result.getRun().number - anOtherLabel.result.getRun().number;
 		}
 
 		@Override
@@ -271,10 +274,13 @@ public class IntegrityHistory {
 
 		@Override
 		public String toString() {
-			String tempLabel = result.getOwner().getDisplayName();
-			String tempBuiltOn = result.getOwner().getBuiltOnStr();
-			if (tempBuiltOn != null) {
-				tempLabel += ' ' + tempBuiltOn;
+			Run<?,?> tempRun = result.getRun();
+			String tempLabel = tempRun.getDisplayName();
+			if (tempRun instanceof AbstractBuild<?,?>) {
+				String tempBuiltOn = ((AbstractBuild<?,?>)tempRun).getBuiltOnStr();
+				if (tempBuiltOn != null) {
+					tempLabel += ' ' + tempBuiltOn;
+				}
 			}
 			return tempLabel;
 		}

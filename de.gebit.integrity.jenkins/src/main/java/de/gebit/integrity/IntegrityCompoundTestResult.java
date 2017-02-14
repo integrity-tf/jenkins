@@ -23,6 +23,7 @@ import com.thoughtworks.xstream.XStream;
 
 import hudson.XmlFile;
 import hudson.model.AbstractBuild;
+import hudson.model.Run;
 import hudson.tasks.test.AbstractTestResultAction;
 import hudson.tasks.test.TabulatedResult;
 import hudson.tasks.test.TestObject;
@@ -95,9 +96,21 @@ public class IntegrityCompoundTestResult extends TabulatedResult {
 	private int callExceptionCount;
 
 	/**
+	 * The directory where persistent state of this result shall be kept.
+	 */
+	private String runRootDir;
+
+	/**
 	 * The action owning this result.
 	 */
 	private transient AbstractTestResultAction<?> parentAction;
+
+	/**
+	 * @param aRunRootDir the directory where persistent state of this result shall be kept
+	 */
+	public IntegrityCompoundTestResult(String aRunRootDir) {
+		this.runRootDir = aRunRootDir;
+	}
 
 	/**
 	 * Adds a child (single test result).
@@ -117,13 +130,21 @@ public class IntegrityCompoundTestResult extends TabulatedResult {
 		sortChildren();
 	}
 
+	/**
+	 * @return The absolute path to the file where persistent state of this result shall be kept
+	 */
+	public String getRunRootDir() {
+		return runRootDir;
+	}
+
 	private XmlFile getXmlFile() {
-		return new XmlFile(XSTREAM, new File(getOwner().getRootDir(), "integrityResultData.xml"));
+		return new XmlFile(XSTREAM, new File(getRunRootDir(), "integrityResultData.xml"));
 	}
 
 	private void sortChildren() {
 		Collections.sort(tempChildren, new Comparator<IntegrityTestResult>() {
 
+			@Override
 			public int compare(IntegrityTestResult o1, IntegrityTestResult o2) {
 				String tempFirstName = o1.getDisplayName() != null ? o1.getDisplayName() : "";
 				String tempSecondName = o2.getDisplayName() != null ? o2.getDisplayName() : "";
@@ -198,8 +219,8 @@ public class IntegrityCompoundTestResult extends TabulatedResult {
 	}
 
 	@Override
-	public AbstractBuild<?, ?> getOwner() {
-		return (parentAction == null ? null : parentAction.owner);
+	public Run<?, ?> getRun() {
+		return (parentAction == null ? null : parentAction.run);
 	}
 
 	@SuppressWarnings("rawtypes")

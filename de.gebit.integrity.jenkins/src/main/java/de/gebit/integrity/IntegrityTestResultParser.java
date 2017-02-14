@@ -1,16 +1,13 @@
 /*******************************************************************************
- * Copyright (c) 2013 Rene Schneider, GEBIT Solutions GmbH and others.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2013 Rene Schneider, GEBIT Solutions GmbH and others. All rights reserved. This program and the
+ * accompanying materials are made available under the terms of the Eclipse Public License v1.0 which accompanies this
+ * distribution, and is available at http://www.eclipse.org/legal/epl-v10.html
  *******************************************************************************/
 package de.gebit.integrity;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.SequenceInputStream;
@@ -34,20 +31,19 @@ import org.xml.sax.XMLReader;
 
 import hudson.AbortException;
 import hudson.FilePath;
-import hudson.FilePath.FileCallable;
 import hudson.Launcher;
 import hudson.Util;
-import hudson.model.AbstractBuild;
+import hudson.model.Run;
 import hudson.model.TaskListener;
 import hudson.remoting.VirtualChannel;
 import hudson.tasks.test.DefaultTestResultParserImpl;
 import hudson.tasks.test.TestResult;
+import jenkins.MasterToSlaveFileCallable;
 
 /**
  * The actual parser for parsing the Integrity result files and extraction of summary information.
  * 
  * @author Rene Schneider - initial API and implementation
- * 
  */
 public class IntegrityTestResultParser extends DefaultTestResultParserImpl {
 
@@ -57,17 +53,62 @@ public class IntegrityTestResultParser extends DefaultTestResultParserImpl {
 	private static final long serialVersionUID = 4841424533054027138L;
 
 	@Override
-	protected TestResult parse(List<File> arg0, Launcher arg1, TaskListener arg2)
+	protected TestResult parse(List<File> someReportFiles, Launcher launcher, TaskListener aListener)
 			throws InterruptedException, IOException {
-		throw new UnsupportedOperationException("This method is not used");
-		// See comments below for why this method is not being used, even though the superclass dedicates it for
-		// parsing.
+		throw new UnsupportedOperationException("Call the overloaded method with the workspace parameter!");
 	}
 
 	/**
+	 * Copied the implementation from the super class in order to
+	 * - pass the workspace to the actual {@link #parse(String, hudson.model.AbstractBuild, Launcher, TaskListener)} method
+	 * - avoid using the Run inside the callable, since it is not serializable.
+	 * - avoid passing the Launcher into the callable, since it is not serializable either.
+	 */
+    @Override
+    public TestResult parseResult(final String testResultLocations, Run<?,?> build, final FilePath workspace, Launcher launcher, final TaskListener listener) throws InterruptedException, IOException {
+        final long buildTime = build.getTimestamp().getTimeInMillis();
+        return workspace.act(new MasterToSlaveFileCallable<TestResult>() {
+            final boolean ignoreTimestampCheck = IGNORE_TIMESTAMP_CHECK; // so that the property can be set on the master
+            final long nowMaster = System.currentTimeMillis();
+
+            @Override
+			public TestResult invoke(File dir, VirtualChannel channel) throws IOException, InterruptedException {
+                final long nowSlave = System.currentTimeMillis();
+
+                // files older than this timestamp is considered stale
+                long localBuildTime = buildTime + (nowSlave - nowMaster);
+
+                FilePath[] paths = new FilePath(dir).list(testResultLocations);
+                if (paths.length==0)
+                    throw new AbortException("No test reports that matches "+testResultLocations+" found. Configuration error?");
+
+                // since dir is local, paths all point to the local files
+                List<File> files = new ArrayList<File>(paths.length);
+                for (FilePath path : paths) {
+                    File report = new File(path.getRemote());
+                    if (ignoreTimestampCheck || localBuildTime - 3000 /*error margin*/ < report.lastModified()) {
+                        // this file is created during this build
+                        files.add(report);
+                    }
+                }
+
+                if (files.isEmpty()) {
+                    // none of the files were new
+                    throw new AbortException(
+                        String.format(
+                        "Test reports were found but none of them are new. Did tests run? %n"+
+                        "For example, %s is %s old%n", paths[0].getRemote(),
+                        Util.getTimeSpanString(localBuildTime-paths[0].lastModified())));
+                }
+
+                return parse(workspace, files, listener);
+            }
+        });
+    }
+
+	/**
 	 * This method performs the actual file parsing. It is used as an alternative to
-	 * {@link #parse(List, Launcher, TaskListener)} in order to eliminate the (unused) parameter "Launcher", which
-	 * creates unsolvable problems in a master-slave Jenkins scenario.
+	 * {@link #parse(List, Launcher, TaskListener)} in order to eliminate the (unused) parameter "Launcher"
 	 * 
 	 * @param someReportFiles
 	 * @param aListener
@@ -75,8 +116,8 @@ public class IntegrityTestResultParser extends DefaultTestResultParserImpl {
 	 * @throws InterruptedException
 	 * @throws IOException
 	 */
-	protected TestResult parse(List<File> someReportFiles, final TaskListener aListener) {
-		final IntegrityCompoundTestResult tempCompoundTestResult = new IntegrityCompoundTestResult();
+	protected TestResult parse(FilePath workspace, List<File> someReportFiles, final TaskListener aListener) {
+		final IntegrityCompoundTestResult tempCompoundTestResult = new IntegrityCompoundTestResult(workspace.getRemote());
 
 		ExecutorService tempExecutor = new ThreadPoolExecutor(Runtime.getRuntime().availableProcessors(),
 				Integer.MAX_VALUE, 10L, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>());
@@ -84,11 +125,11 @@ public class IntegrityTestResultParser extends DefaultTestResultParserImpl {
 		for (final File tempFile : someReportFiles) {
 			Runnable tempRunnable = new Runnable() {
 
+				@Override
 				public void run() {
 					aListener.getLogger().println("Now parsing Integrity test result file " + tempFile.getAbsolutePath()
 							+ " using Thread '" + Thread.currentThread().getName() + "'");
 
-					FileReader tempFileReader = null;
 					try {
 						// Read the file into memory. Mainly done to archive it in the result, but the buffer is also
 						// fed into a SAX parser below to prevent reading the file twice.
@@ -198,14 +239,6 @@ public class IntegrityTestResultParser extends DefaultTestResultParserImpl {
 								"Successfully parsed Integrity test result file " + tempFile.getAbsolutePath());
 					} catch (Exception exc) {
 						aListener.getLogger().println("Exception while parsing Integrity result: " + exc.getMessage());
-					} finally {
-						if (tempFileReader != null) {
-							try {
-								tempFileReader.close();
-							} catch (IOException exc) {
-								// ignored
-							}
-						}
 					}
 				}
 			};
@@ -227,71 +260,6 @@ public class IntegrityTestResultParser extends DefaultTestResultParserImpl {
 		}
 
 		return tempCompoundTestResult;
-	}
-
-	@SuppressWarnings("rawtypes")
-	@Override
-	public TestResult parse(final String testResultLocations, final AbstractBuild build, final Launcher launcher,
-			final TaskListener listener) throws InterruptedException, IOException {
-		// We override the superclasses' parse method here with basically a copy of the superclasses' code, but two very
-		// important changes:
-		// - The "build" parameter is not included in the closure created when instantiating the FileCallable anonymous
-		// inner class below
-		// - The final call to "parse" omits the parameter "launcher" that was included there in the original method,
-		// which also results in the contents of that parameter not being included in the closure
-		// Both of these changes were necessary to fix issue #8 - a NotSerializableException thrown in case of a build
-		// running on a slave (and thus parsing test results on a slave, too). Neither the Jenkins-supplied subclasses
-		// of AbstractBuild nor the subclasses of Launcher support serialization, and since these classes are
-		// Jenkins-provided, a plugin cannot simply make those serializable. Therefore, by requiring the serialization
-		// of these objects implicitly via inclusion of the instances in the closure created by the instantiation of the
-		// to-be-serialized FileCallable-based anonymous inner class, the superclasses' base code effectively makes it
-		// impossible to create a test result analysis plugin that plays well in master-slave constellations. THANKS,
-		// JENKINS, FOR SUCKING BALLS IN THIS REGARD!
-		// See also this (loosely related) StackOverflow discussion:
-		// http://stackoverflow.com/questions/17727054/cannot-access-file-on-jenkins-slave
-		final long buildTime = build.getTimestamp().getTimeInMillis();
-
-		return build.getWorkspace().act(new FileCallable<TestResult>() {
-
-			private static final long serialVersionUID = 6552533744626807645L;
-
-			final boolean ignoreTimestampCheck = IGNORE_TIMESTAMP_CHECK; // so that the property can be set on the
-																			// master
-			final long nowMaster = System.currentTimeMillis();
-
-			public TestResult invoke(File dir, VirtualChannel channel) throws IOException, InterruptedException {
-				final long nowSlave = System.currentTimeMillis();
-
-				// files older than this timestamp is considered stale
-				long localBuildTime = buildTime + (nowSlave - nowMaster);
-
-				FilePath[] paths = new FilePath(dir).list(testResultLocations);
-				if (paths.length == 0) {
-					throw new AbortException(
-							"No test reports that matches " + testResultLocations + " found. Configuration error?");
-				}
-
-				// since dir is local, paths all point to the local files
-				List<File> files = new ArrayList<File>(paths.length);
-				for (FilePath path : paths) {
-					File report = new File(path.getRemote());
-					if (ignoreTimestampCheck || localBuildTime - 3000 /* error margin */ < report.lastModified()) {
-						// this file is created during this build
-						files.add(report);
-					}
-				}
-
-				if (files.isEmpty()) {
-					// none of the files were new
-					throw new AbortException(String.format(
-							"Test reports were found but none of them are new. Did tests run? \n"
-									+ "For example, %s is %s old\n",
-							paths[0].getRemote(), Util.getTimeSpanString(localBuildTime - paths[0].lastModified())));
-				}
-
-				return parse(files, listener);
-			}
-		});
 	}
 
 	private static class EndParsingException extends SAXException {
@@ -363,26 +331,32 @@ public class IntegrityTestResultParser extends DefaultTestResultParserImpl {
 			return testName;
 		}
 
+		@Override
 		public void setDocumentLocator(Locator aLocator) {
 			// not used at the moment
 		}
 
+		@Override
 		public void startDocument() throws SAXException {
 			// not used at the moment
 		}
 
+		@Override
 		public void endDocument() throws SAXException {
 			// not used at the moment
 		}
 
+		@Override
 		public void startPrefixMapping(String aPrefix, String anUri) throws SAXException {
 			// not used at the moment
 		}
 
+		@Override
 		public void endPrefixMapping(String aPrefix) throws SAXException {
 			// not used at the moment
 		}
 
+		@Override
 		public void startElement(String anUri, String aLocalName, String aQualifiedName, Attributes someAttributes)
 				throws SAXException {
 			if (!insideXslt) {
@@ -428,6 +402,7 @@ public class IntegrityTestResultParser extends DefaultTestResultParserImpl {
 			}
 		}
 
+		@Override
 		public void endElement(String anUri, String aLocalName, String aQualifiedName) throws SAXException {
 			if (insideXslt) {
 				if ("xsl:stylesheet".equals(aQualifiedName)) {
@@ -440,18 +415,22 @@ public class IntegrityTestResultParser extends DefaultTestResultParserImpl {
 			}
 		}
 
+		@Override
 		public void characters(char[] someCharacters, int aStart, int aLength) throws SAXException {
 			// not used at the moment
 		}
 
+		@Override
 		public void ignorableWhitespace(char[] someCharacters, int aStart, int aLength) throws SAXException {
 			// not used at the moment
 		}
 
+		@Override
 		public void processingInstruction(String aTarget, String aData) throws SAXException {
 			// not used at the moment
 		}
 
+		@Override
 		public void skippedEntity(String aName) throws SAXException {
 			// not used at the moment
 		}

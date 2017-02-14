@@ -16,7 +16,7 @@ import java.util.Collection;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
-import hudson.model.AbstractBuild;
+import hudson.model.Run;
 import hudson.tasks.test.AbstractTestResultAction;
 import hudson.tasks.test.TabulatedResult;
 import hudson.tasks.test.TestObject;
@@ -134,8 +134,8 @@ public class IntegrityTestResult extends TabulatedResult {
 	}
 
 	@Override
-	public AbstractBuild<?, ?> getOwner() {
-		return (parentAction == null ? null : parentAction.owner);
+	public Run<?, ?> getRun() {
+		return (parentAction == null ? null : parentAction.run);
 	}
 
 	@SuppressWarnings("rawtypes")
@@ -147,6 +147,7 @@ public class IntegrityTestResult extends TabulatedResult {
 	/**
 	 * Returns the displayed name for this test.
 	 */
+	@Override
 	public String getDisplayName() {
 		if (displayName != null) {
 			return displayName;
