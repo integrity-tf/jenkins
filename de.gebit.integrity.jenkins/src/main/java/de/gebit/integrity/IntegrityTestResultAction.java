@@ -7,16 +7,12 @@
  *******************************************************************************/
 package de.gebit.integrity;
 
-import java.io.File;
-import java.io.IOException;
-
 import org.jvnet.localizer.Localizable;
 import org.kohsuke.stapler.StaplerProxy;
 import org.kohsuke.stapler.export.Exported;
 
 import com.thoughtworks.xstream.XStream;
 
-import hudson.XmlFile;
 import hudson.model.BuildListener;
 import hudson.model.HealthReport;
 import hudson.tasks.test.AbstractTestResultAction;
@@ -35,7 +31,7 @@ public class IntegrityTestResultAction extends AbstractTestResultAction<Integrit
 	/**
 	 * The result to display.
 	 */
-	private transient IntegrityCompoundTestResult result;
+	private IntegrityCompoundTestResult result;
 
 	/**
 	 * The XStream instance used for result persistence.
@@ -60,49 +56,13 @@ public class IntegrityTestResultAction extends AbstractTestResultAction<Integrit
 	 * @param aListener
 	 *            the listener
 	 */
-	public IntegrityTestResultAction(IntegrityCompoundTestResult aResult,
-			BuildListener aListener) {
+	public IntegrityTestResultAction(IntegrityCompoundTestResult aResult, BuildListener aListener) {
 		result = aResult;
-		synchronized (this) {
-			aResult.setParentAction(this);
-
-			try {
-				getDataFile().write(aResult);
-			} catch (IOException exc) {
-				exc.printStackTrace(aListener.fatalError("Failed to save the Integrity test result"));
-			}
-		}
+		aResult.setParentAction(this);
 	}
 
-	private File getRootDir() {
-		return new File(result.getRunRootDir());
-	}
-
-	private XmlFile getDataFile() {
-		return new XmlFile(XSTREAM, new File(getRootDir(), "integrityCompoundResult.xml"));
-	}
-
-	private IntegrityCompoundTestResult loadFromDisk() {
-		IntegrityCompoundTestResult tempResult;
-		try {
-			tempResult = (IntegrityCompoundTestResult) getDataFile().read();
-		} catch (IOException exc) {
-			exc.printStackTrace();
-			tempResult = new IntegrityCompoundTestResult(getRootDir().getAbsolutePath());
-		}
-		tempResult.setParentAction(this);
-		return tempResult;
-	}
-
-	/**
-	 * Fetches the result (if necessary from disk).
-	 */
 	@Override
 	public synchronized IntegrityCompoundTestResult getResult() {
-		if (result == null) {
-			result = loadFromDisk();
-		}
-
 		return result;
 	}
 

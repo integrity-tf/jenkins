@@ -59,52 +59,54 @@ public class IntegrityTestResultParser extends DefaultTestResultParserImpl {
 	}
 
 	/**
-	 * Copied the implementation from the super class in order to
-	 * - pass the workspace to the actual {@link #parse(String, hudson.model.AbstractBuild, Launcher, TaskListener)} method
-	 * - avoid using the Run inside the callable, since it is not serializable.
-	 * - avoid passing the Launcher into the callable, since it is not serializable either.
+	 * Copied the implementation from the super class in order to - pass the workspace to the actual
+	 * {@link #parse(String, hudson.model.AbstractBuild, Launcher, TaskListener)} method - avoid using the Run inside
+	 * the callable, since it is not serializable. - avoid passing the Launcher into the callable, since it is not
+	 * serializable either.
 	 */
-    @Override
-    public TestResult parseResult(final String testResultLocations, Run<?,?> build, final FilePath workspace, Launcher launcher, final TaskListener listener) throws InterruptedException, IOException {
-        final long buildTime = build.getTimestamp().getTimeInMillis();
-        return workspace.act(new MasterToSlaveFileCallable<TestResult>() {
-            final boolean ignoreTimestampCheck = IGNORE_TIMESTAMP_CHECK; // so that the property can be set on the master
-            final long nowMaster = System.currentTimeMillis();
+	@Override
+	public TestResult parseResult(final String testResultLocations, Run<?, ?> build, final FilePath workspace,
+			Launcher launcher, final TaskListener listener) throws InterruptedException, IOException {
+		final long buildTime = build.getTimestamp().getTimeInMillis();
+		return workspace.act(new MasterToSlaveFileCallable<TestResult>() {
+			final boolean ignoreTimestampCheck = IGNORE_TIMESTAMP_CHECK; // so that the property can be set on the
+																			// master
+			final long nowMaster = System.currentTimeMillis();
 
-            @Override
+			@Override
 			public TestResult invoke(File dir, VirtualChannel channel) throws IOException, InterruptedException {
-                final long nowSlave = System.currentTimeMillis();
+				final long nowSlave = System.currentTimeMillis();
 
-                // files older than this timestamp is considered stale
-                long localBuildTime = buildTime + (nowSlave - nowMaster);
+				// files older than this timestamp is considered stale
+				long localBuildTime = buildTime + (nowSlave - nowMaster);
 
-                FilePath[] paths = new FilePath(dir).list(testResultLocations);
-                if (paths.length==0)
-                    throw new AbortException("No test reports that matches "+testResultLocations+" found. Configuration error?");
+				FilePath[] paths = new FilePath(dir).list(testResultLocations);
+				if (paths.length == 0)
+					throw new AbortException(
+							"No test reports that matches " + testResultLocations + " found. Configuration error?");
 
-                // since dir is local, paths all point to the local files
-                List<File> files = new ArrayList<File>(paths.length);
-                for (FilePath path : paths) {
-                    File report = new File(path.getRemote());
-                    if (ignoreTimestampCheck || localBuildTime - 3000 /*error margin*/ < report.lastModified()) {
-                        // this file is created during this build
-                        files.add(report);
-                    }
-                }
+				// since dir is local, paths all point to the local files
+				List<File> files = new ArrayList<File>(paths.length);
+				for (FilePath path : paths) {
+					File report = new File(path.getRemote());
+					if (ignoreTimestampCheck || localBuildTime - 3000 /* error margin */ < report.lastModified()) {
+						// this file is created during this build
+						files.add(report);
+					}
+				}
 
-                if (files.isEmpty()) {
-                    // none of the files were new
-                    throw new AbortException(
-                        String.format(
-                        "Test reports were found but none of them are new. Did tests run? %n"+
-                        "For example, %s is %s old%n", paths[0].getRemote(),
-                        Util.getTimeSpanString(localBuildTime-paths[0].lastModified())));
-                }
+				if (files.isEmpty()) {
+					// none of the files were new
+					throw new AbortException(String.format(
+							"Test reports were found but none of them are new. Did tests run? %n"
+									+ "For example, %s is %s old%n",
+							paths[0].getRemote(), Util.getTimeSpanString(localBuildTime - paths[0].lastModified())));
+				}
 
-                return parse(workspace, files, listener);
-            }
-        });
-    }
+				return parse(workspace, files, listener);
+			}
+		});
+	}
 
 	/**
 	 * This method performs the actual file parsing. It is used as an alternative to
@@ -117,7 +119,7 @@ public class IntegrityTestResultParser extends DefaultTestResultParserImpl {
 	 * @throws IOException
 	 */
 	protected TestResult parse(FilePath workspace, List<File> someReportFiles, final TaskListener aListener) {
-		final IntegrityCompoundTestResult tempCompoundTestResult = new IntegrityCompoundTestResult(workspace.getRemote());
+		final IntegrityCompoundTestResult tempCompoundTestResult = new IntegrityCompoundTestResult();
 
 		ExecutorService tempExecutor = new ThreadPoolExecutor(Runtime.getRuntime().availableProcessors(),
 				Integer.MAX_VALUE, 10L, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>());
@@ -237,7 +239,7 @@ public class IntegrityTestResultParser extends DefaultTestResultParserImpl {
 
 						aListener.getLogger().println(
 								"Successfully parsed Integrity test result file " + tempFile.getAbsolutePath());
-					} catch (Exception exc) {
+					} catch (Throwable exc) {
 						aListener.getLogger().println("Exception while parsing Integrity result: " + exc.getMessage());
 					}
 				}
@@ -247,6 +249,8 @@ public class IntegrityTestResultParser extends DefaultTestResultParserImpl {
 		}
 
 		tempExecutor.shutdown();
+
+		aListener.getLogger().println("Now waiting for async Integrity test result parsers to finish");
 
 		while (!tempExecutor.isTerminated()) {
 			try {
@@ -258,6 +262,9 @@ public class IntegrityTestResultParser extends DefaultTestResultParserImpl {
 				// ignored
 			}
 		}
+
+		aListener.getLogger().println("Integrity test result parsers have finished, "
+				+ tempCompoundTestResult.getChildren().size() + " result(s) were parsed");
 
 		return tempCompoundTestResult;
 	}

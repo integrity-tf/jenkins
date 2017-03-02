@@ -20,6 +20,8 @@ import org.kohsuke.stapler.StaplerRequest;
 import org.kohsuke.stapler.StaplerResponse;
 
 import com.thoughtworks.xstream.XStream;
+import com.thoughtworks.xstream.annotations.XStreamOmitField;
+import com.thoughtworks.xstream.core.util.CustomObjectOutputStream;
 
 import hudson.XmlFile;
 import hudson.model.AbstractBuild;
@@ -56,9 +58,13 @@ public class IntegrityCompoundTestResult extends TabulatedResult {
 	}
 
 	/**
-	 * The inner test results.
+	 * The inner test results. This field is non-transient in order to ensure that it is serialized and transferred from
+	 * build slaves to the master (which works via Java Serialization), but it is omitted by XStream, because for
+	 * XStream serialization (which Jenkins uses to persist build results) we want this field to be considered transient
+	 * - its contents can get quite huge, and we serialize it into a separate file and deserialize it only on demand.
 	 */
-	private transient List<IntegrityTestResult> tempChildren;
+	@XStreamOmitField
+	private List<IntegrityTestResult> tempChildren;
 
 	/**
 	 * Whether we already updated child links.
@@ -96,21 +102,9 @@ public class IntegrityCompoundTestResult extends TabulatedResult {
 	private int callExceptionCount;
 
 	/**
-	 * The directory where persistent state of this result shall be kept.
-	 */
-	private String runRootDir;
-
-	/**
 	 * The action owning this result.
 	 */
 	private transient AbstractTestResultAction<?> parentAction;
-
-	/**
-	 * @param aRunRootDir the directory where persistent state of this result shall be kept
-	 */
-	public IntegrityCompoundTestResult(String aRunRootDir) {
-		this.runRootDir = aRunRootDir;
-	}
 
 	/**
 	 * Adds a child (single test result).
@@ -130,15 +124,8 @@ public class IntegrityCompoundTestResult extends TabulatedResult {
 		sortChildren();
 	}
 
-	/**
-	 * @return The absolute path to the file where persistent state of this result shall be kept
-	 */
-	public String getRunRootDir() {
-		return runRootDir;
-	}
-
 	private XmlFile getXmlFile() {
-		return new XmlFile(XSTREAM, new File(getRunRootDir(), "integrityResultData.xml"));
+		return new XmlFile(XSTREAM, new File(getOwner().getRootDir(), "integrityResultData.xml"));
 	}
 
 	private void sortChildren() {
@@ -204,8 +191,13 @@ public class IntegrityCompoundTestResult extends TabulatedResult {
 
 		stream.defaultWriteObject();
 
-		if (!hasPersistedChildren) {
-			persistChildren();
+		if (stream instanceof CustomObjectOutputStream) {
+			// Only in case of XStream, persist the children into a separate file.
+			// With Java Serialization we don't, since the children are transported within the serialized compound
+			// result.
+			if (!hasPersistedChildren) {
+				persistChildren();
+			}
 		}
 	}
 
