@@ -10,6 +10,7 @@ package de.gebit.integrity;
 import java.awt.Color;
 import java.awt.Paint;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import org.jfree.chart.ChartFactory;
@@ -40,7 +41,6 @@ import jenkins.model.Jenkins;
  * which isn't that well-suited for customization, thus a some of the code was duplicated.
  * 
  * @author Rene Schneider - initial API and implementation
- * 
  */
 public class IntegrityHistory {
 
@@ -57,6 +57,9 @@ public class IntegrityHistory {
 	 */
 	public IntegrityHistory(IntegrityCompoundTestResult aTestResult) {
 		this.testResult = aTestResult;
+		if (testResult == null) {
+			throw new IllegalArgumentException("aTestResult must not be null");
+		}
 	}
 
 	public IntegrityCompoundTestResult getTestResult() {
@@ -69,7 +72,7 @@ public class IntegrityHistory {
 	 * @return true if available, false otherwise
 	 */
 	public boolean historyAvailable() {
-		return testResult.getOwner().getParent().getBuilds().size() > 1;
+		return testResult.getRun().getParent().getBuilds().size() > 1;
 	}
 
 	/**
@@ -88,8 +91,8 @@ public class IntegrityHistory {
 			if (tempBuild.isBuilding()) {
 				continue;
 			}
-			if (tempBuild instanceof AbstractBuild<?,?>) {
-				TestResult tempResult = testResult.getResultInBuild((AbstractBuild<?, ?>) tempBuild);
+			if (tempBuild instanceof AbstractBuild<?, ?>) {
+				TestResult tempResult = testResult.getResultInRun(tempBuild);
 				if (tempResult != null) {
 					tempList.add(tempResult);
 				}
@@ -99,7 +102,11 @@ public class IntegrityHistory {
 	}
 
 	public List<TestResult> getList() {
-		return getList(0, testResult.getRun().getParent().getBuilds().size());
+		Run<?, ?> tempRun = testResult.getRun();
+		if (tempRun != null) {
+			return getList(0, tempRun.getParent().getBuilds().size());
+		}
+		return Collections.emptyList();
 	}
 
 	/**
@@ -109,6 +116,7 @@ public class IntegrityHistory {
 	 */
 	public Graph getCountGraph() {
 		return new GraphImpl("") {
+
 			@Override
 			protected DataSetBuilder<String, ChartLabel> createDataSet() {
 				DataSetBuilder<String, ChartLabel> tempData = new DataSetBuilder<String, ChartLabel>();
@@ -250,6 +258,7 @@ public class IntegrityHistory {
 			this.url = Jenkins.getInstance().getRootUrl() + tempBuildLink + tempActionUrl + result.getUrl();
 		}
 
+		@Override
 		public int compareTo(ChartLabel anOtherLabel) {
 			return this.result.getRun().number - anOtherLabel.result.getRun().number;
 		}
@@ -274,10 +283,10 @@ public class IntegrityHistory {
 
 		@Override
 		public String toString() {
-			Run<?,?> tempRun = result.getRun();
+			Run<?, ?> tempRun = result.getRun();
 			String tempLabel = tempRun.getDisplayName();
-			if (tempRun instanceof AbstractBuild<?,?>) {
-				String tempBuiltOn = ((AbstractBuild<?,?>)tempRun).getBuiltOnStr();
+			if (tempRun instanceof AbstractBuild<?, ?>) {
+				String tempBuiltOn = ((AbstractBuild<?, ?>) tempRun).getBuiltOnStr();
 				if (tempBuiltOn != null) {
 					tempLabel += ' ' + tempBuiltOn;
 				}
