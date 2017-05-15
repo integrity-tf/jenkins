@@ -265,6 +265,7 @@ public class IntegrityTestResultParser extends DefaultTestResultParserImpl {
 
 		aListener.getLogger().println("Integrity test result parsers have finished, "
 				+ tempCompoundTestResult.getChildren().size() + " result(s) were parsed");
+		tempCompoundTestResult.updateCounts();
 
 		return tempCompoundTestResult;
 	}
