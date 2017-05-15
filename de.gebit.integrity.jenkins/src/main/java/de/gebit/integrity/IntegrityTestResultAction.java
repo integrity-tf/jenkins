@@ -23,7 +23,6 @@ import hudson.util.XStream2;
  * This result action is responsible for displaying the test result overview on the page of individual builds.
  * 
  * @author Rene Schneider - initial API and implementation
- * 
  */
 public class IntegrityTestResultAction extends AbstractTestResultAction<IntegrityTestResultAction>
 		implements StaplerProxy {
@@ -59,6 +58,15 @@ public class IntegrityTestResultAction extends AbstractTestResultAction<Integrit
 	public IntegrityTestResultAction(IntegrityCompoundTestResult aResult, BuildListener aListener) {
 		result = aResult;
 		aResult.setParentAction(this);
+	}
+
+	@Override
+	public Object readResolve() {
+		Object tempObject = super.readResolve();
+		if (result != null) {
+			result.setParentAction(this);
+		}
+		return tempObject;
 	}
 
 	@Override

@@ -24,7 +24,6 @@ import com.thoughtworks.xstream.annotations.XStreamOmitField;
 import com.thoughtworks.xstream.core.util.CustomObjectOutputStream;
 
 import hudson.XmlFile;
-import hudson.model.AbstractBuild;
 import hudson.model.Run;
 import hudson.tasks.test.AbstractTestResultAction;
 import hudson.tasks.test.TabulatedResult;
@@ -38,7 +37,6 @@ import hudson.util.XStream2;
  * compound.
  * 
  * @author Rene Schneider - initial API and implementation
- * 
  */
 public class IntegrityCompoundTestResult extends TabulatedResult {
 
@@ -166,7 +164,7 @@ public class IntegrityCompoundTestResult extends TabulatedResult {
 		hasPersistedChildren = true;
 	}
 
-	private void updateCounts() {
+	public void updateCounts() {
 		passCount = 0;
 		failCount = 0;
 		skipCount = 0;
@@ -311,28 +309,4 @@ public class IntegrityCompoundTestResult extends TabulatedResult {
 	public int getExceptionCount() {
 		return getTestExceptionCount() + getCallExceptionCount();
 	}
-
-	/**
-	 * Gets the counter part of this {@link TestResult} in the specified run. This basically equals the upstream
-	 * function that is overridden here, but it also sets the parent action.
-	 * 
-	 * @return null if no such counter part exists.
-	 */
-	@Override
-	public TestResult getResultInBuild(AbstractBuild<?, ?> aBuild) {
-		AbstractTestResultAction<?> tempTestResultAction = aBuild.getAction(getParentAction().getClass());
-		if (tempTestResultAction == null) {
-			tempTestResultAction = aBuild.getAction(AbstractTestResultAction.class);
-		}
-		if (tempTestResultAction == null) {
-			return null;
-		} else {
-			TestResult tempResult = tempTestResultAction.findCorrespondingResult(this.getId());
-			if (tempResult != null) {
-				tempResult.setParentAction(tempTestResultAction);
-			}
-			return tempResult;
-		}
-	}
-
 }

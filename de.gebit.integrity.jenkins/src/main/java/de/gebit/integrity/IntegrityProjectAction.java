@@ -7,16 +7,15 @@
  *******************************************************************************/
 package de.gebit.integrity;
 
-import hudson.model.Action;
 import hudson.model.AbstractBuild;
 import hudson.model.AbstractProject;
+import hudson.model.Action;
 
 /**
  * The project action for Integrity Test Results. This class is responsible for displaying the Integrity overview on the
  * projects' pages, where the results of the last build and historical graphs etc. are shown.
  * 
  * @author Rene Schneider - initial API and implementation
- * 
  */
 public class IntegrityProjectAction implements Action {
 
@@ -34,14 +33,17 @@ public class IntegrityProjectAction implements Action {
 		this.project = aProject;
 	}
 
+	@Override
 	public String getIconFileName() {
 		return null;
 	}
 
+	@Override
 	public String getDisplayName() {
 		return null;
 	}
 
+	@Override
 	public String getUrlName() {
 		return "integrity";
 	}
@@ -66,6 +68,9 @@ public class IntegrityProjectAction implements Action {
 			return null;
 		}
 		IntegrityCompoundTestResult tempResult = tempLatestResults.getResult();
+		if (tempResult == null) {
+			return null;
+		}
 		return new IntegrityHistory(tempResult);
 	}
 
