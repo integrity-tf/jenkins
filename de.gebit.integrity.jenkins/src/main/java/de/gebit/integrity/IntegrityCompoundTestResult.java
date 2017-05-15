@@ -164,7 +164,7 @@ public class IntegrityCompoundTestResult extends TabulatedResult {
 		hasPersistedChildren = true;
 	}
 
-	private void updateCounts() {
+	public void updateCounts() {
 		passCount = 0;
 		failCount = 0;
 		skipCount = 0;
