@@ -12,22 +12,20 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.SequenceInputStream;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
-import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.parsers.SAXParser;
-import javax.xml.parsers.SAXParserFactory;
-
-import org.xml.sax.Attributes;
-import org.xml.sax.ContentHandler;
-import org.xml.sax.InputSource;
-import org.xml.sax.Locator;
-import org.xml.sax.SAXException;
-import org.xml.sax.XMLReader;
+import javax.xml.namespace.QName;
+import javax.xml.stream.XMLEventReader;
+import javax.xml.stream.XMLInputFactory;
+import javax.xml.stream.events.Attribute;
+import javax.xml.stream.events.EndElement;
+import javax.xml.stream.events.StartElement;
+import javax.xml.stream.events.XMLEvent;
 
 import hudson.AbortException;
 import hudson.FilePath;
@@ -191,22 +189,6 @@ public class IntegrityTestResultParser extends DefaultTestResultParserImpl {
 							}
 						}
 
-						final IntegrityContentHandler tempContentHandler = new IntegrityContentHandler();
-
-						SAXParser tempParser;
-						try {
-							tempParser = SAXParserFactory.newInstance().newSAXParser();
-						} catch (ParserConfigurationException exc) {
-							throw new IOException(exc);
-						}
-						XMLReader tempXmlReader = tempParser.getXMLReader();
-						tempXmlReader.setContentHandler(tempContentHandler);
-						tempXmlReader.setFeature("http://xml.org/sax/features/validation", false);
-						tempXmlReader.setFeature("http://apache.org/xml/features/nonvalidating/load-dtd-grammar",
-								false);
-						tempXmlReader.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd",
-								false);
-
 						InputStream tempFinalInputStream;
 						if (tempDoctypeEndPos > 0 && tempXMLDataStartPos < tempBuffer.length) {
 							// If we have an end position for the DOCTYPE declaration and a valid XML data start, just
@@ -222,20 +204,24 @@ public class IntegrityTestResultParser extends DefaultTestResultParserImpl {
 									tempBuffer.length - tempXMLDataStartPos);
 						}
 
-						InputSource tempInputSource = new InputSource(
-								tempIsHtml ? new FilteringHTMLInputStream(tempFinalInputStream) : tempFinalInputStream);
+						XMLInputFactory tempInputFactory = XMLInputFactory.newInstance();
+						tempInputFactory.setProperty(XMLInputFactory.IS_REPLACING_ENTITY_REFERENCES, false);
+						tempInputFactory.setProperty(XMLInputFactory.IS_SUPPORTING_EXTERNAL_ENTITIES, false);
+						XMLEventReader tempEventReader = tempInputFactory.createXMLEventReader(tempFinalInputStream);
 
+						IntegrityContentHandler tempHandler = new IntegrityContentHandler();
 						try {
-							tempXmlReader.parse(tempInputSource);
-						} catch (EndParsingException exc) {
-							// this isn't an error, but expected to abort parsing
+							while (tempEventReader.hasNext() && tempHandler.handleEvent(tempEventReader.nextEvent())) {
+								// loop
+							}
+						} finally {
+							tempEventReader.close();
 						}
 
 						tempCompoundTestResult.addChild(new IntegrityTestResult(tempCompoundTestResult,
-								tempFile.getName(), tempContentHandler.getTestName(), tempBuffer, tempContentType,
-								tempContentHandler.getSuccessCount(), tempContentHandler.getFailureCount(),
-								tempContentHandler.getTestExceptionCount(),
-								tempContentHandler.getCallExceptionCount()));
+								tempFile.getName(), tempHandler.getTestName(), tempBuffer, tempContentType,
+								tempHandler.getSuccessCount(), tempHandler.getFailureCount(),
+								tempHandler.getTestExceptionCount(), tempHandler.getCallExceptionCount()));
 
 						aListener.getLogger().println(
 								"Successfully parsed Integrity test result file " + tempFile.getAbsolutePath());
@@ -270,19 +256,7 @@ public class IntegrityTestResultParser extends DefaultTestResultParserImpl {
 		return tempCompoundTestResult;
 	}
 
-	private static class EndParsingException extends SAXException {
-
-		/**
-		 * Serial version ID.
-		 */
-		private static final long serialVersionUID = 8064327549601301643L;
-
-		public EndParsingException() {
-			super();
-		}
-	}
-
-	private static class IntegrityContentHandler implements ContentHandler {
+	private static class IntegrityContentHandler {
 
 		/**
 		 * The number of successful tests.
@@ -339,115 +313,80 @@ public class IntegrityTestResultParser extends DefaultTestResultParserImpl {
 			return testName;
 		}
 
-		@Override
-		public void setDocumentLocator(Locator aLocator) {
-			// not used at the moment
-		}
+		public boolean handleEvent(XMLEvent anEvent) {
+			if (anEvent.isStartElement()) {
+				StartElement tempStartEvent = anEvent.asStartElement();
 
-		@Override
-		public void startDocument() throws SAXException {
-			// not used at the moment
-		}
+				if (!insideXslt) {
+					if ("stylesheet".equals(tempStartEvent.getName().getLocalPart())) {
+						insideXslt = true;
+						return true;
+					}
 
-		@Override
-		public void endDocument() throws SAXException {
-			// not used at the moment
-		}
+					if ("suite".equals(tempStartEvent.getName().getLocalPart())) {
+						suiteStackDepth++;
+					} else if ("integrity".equals(tempStartEvent.getName().getLocalPart())) {
+						testName = tempStartEvent.getAttributeByName(new QName("name")).getValue();
+					} else if ("result".equals(tempStartEvent.getName().getLocalPart())) {
+						if (suiteStackDepth == 1 && tempStartEvent.getAttributeByName(new QName("type")) == null) {
+							// This seems to be the outermost suite result element (call results are also <result>
+							// elements,
+							// but they contain a result type instead of a summary). We simply fetch the execution
+							// totals
+							// from this one and rely on Integrity for summing them up correctly.
 
-		@Override
-		public void startPrefixMapping(String aPrefix, String anUri) throws SAXException {
-			// not used at the moment
-		}
+							String tempSuccessCount = getValueIgnoreCase(tempStartEvent.getAttributes(),
+									"successCount");
+							if (tempSuccessCount != null) {
+								successCount = Integer.parseInt(tempSuccessCount);
+							}
 
-		@Override
-		public void endPrefixMapping(String aPrefix) throws SAXException {
-			// not used at the moment
-		}
+							String tempFailureCount = getValueIgnoreCase(tempStartEvent.getAttributes(),
+									"failureCount");
+							if (tempFailureCount != null) {
+								failureCount = Integer.parseInt(tempFailureCount);
+							}
 
-		@Override
-		public void startElement(String anUri, String aLocalName, String aQualifiedName, Attributes someAttributes)
-				throws SAXException {
-			if (!insideXslt) {
-				if ("xsl:stylesheet".equals(aQualifiedName)) {
-					insideXslt = true;
-					return;
+							String tempTestExceptionCount = getValueIgnoreCase(tempStartEvent.getAttributes(),
+									"testExceptionCount");
+							if (tempTestExceptionCount != null) {
+								testExceptionCount = Integer.parseInt(tempTestExceptionCount);
+							}
+
+							String tempCallExceptionCount = getValueIgnoreCase(tempStartEvent.getAttributes(),
+									"callExceptionCount");
+							if (tempTestExceptionCount != null) {
+								callExceptionCount = Integer.parseInt(tempCallExceptionCount);
+							}
+
+							// When we've arrived here, we have parsed everything necessary out of the file!
+							return false;
+						}
+					}
 				}
+			} else if (anEvent.isEndElement()) {
+				EndElement tempEndEvent = anEvent.asEndElement();
 
-				if ("suite".equals(aQualifiedName)) {
-					suiteStackDepth++;
-				} else if ("integrity".equals(aQualifiedName)) {
-					testName = someAttributes.getValue("name");
-				} else if ("result".equals(aQualifiedName)) {
-					if (suiteStackDepth == 1 && someAttributes.getValue("type") == null) {
-						// This seems to be the outermost suite result element (call results are also <result> elements,
-						// but they contain a result type instead of a summary). We simply fetch the execution totals
-						// from this one and rely on Integrity for summing them up correctly.
-
-						String tempSuccessCount = getValueIgnoreCase(someAttributes, "successCount");
-						if (tempSuccessCount != null) {
-							successCount = Integer.parseInt(tempSuccessCount);
-						}
-
-						String tempFailureCount = getValueIgnoreCase(someAttributes, "failureCount");
-						if (tempFailureCount != null) {
-							failureCount = Integer.parseInt(tempFailureCount);
-						}
-
-						String tempTestExceptionCount = getValueIgnoreCase(someAttributes, "testExceptionCount");
-						if (tempTestExceptionCount != null) {
-							testExceptionCount = Integer.parseInt(tempTestExceptionCount);
-						}
-
-						String tempCallExceptionCount = getValueIgnoreCase(someAttributes, "callExceptionCount");
-						if (tempTestExceptionCount != null) {
-							callExceptionCount = Integer.parseInt(tempCallExceptionCount);
-						}
-
-						// When we've arrived here, we have parsed everything necessary out of the file!
-						throw new EndParsingException();
+				if (insideXslt) {
+					if ("stylesheet".equals(tempEndEvent.getName().getLocalPart())) {
+						insideXslt = false;
+					}
+				} else {
+					if ("suite".equals(tempEndEvent.getName().getLocalPart())) {
+						suiteStackDepth--;
 					}
 				}
 			}
+
+			return true;
 		}
 
-		@Override
-		public void endElement(String anUri, String aLocalName, String aQualifiedName) throws SAXException {
-			if (insideXslt) {
-				if ("xsl:stylesheet".equals(aQualifiedName)) {
-					insideXslt = false;
-				}
-			} else {
-				if ("suite".equals(aQualifiedName)) {
-					suiteStackDepth--;
-				}
-			}
-		}
-
-		@Override
-		public void characters(char[] someCharacters, int aStart, int aLength) throws SAXException {
-			// not used at the moment
-		}
-
-		@Override
-		public void ignorableWhitespace(char[] someCharacters, int aStart, int aLength) throws SAXException {
-			// not used at the moment
-		}
-
-		@Override
-		public void processingInstruction(String aTarget, String aData) throws SAXException {
-			// not used at the moment
-		}
-
-		@Override
-		public void skippedEntity(String aName) throws SAXException {
-			// not used at the moment
-		}
-
-		private String getValueIgnoreCase(Attributes someAttributes, String aName) {
-			for (int i = 0; i < someAttributes.getLength(); i++) {
-				String tempQName = someAttributes.getQName(i);
+		private String getValueIgnoreCase(@SuppressWarnings("rawtypes") Iterator someAttributes, String aName) {
+			while (someAttributes.hasNext()) {
+				Attribute tempAttribute = (Attribute) someAttributes.next();
+				String tempQName = tempAttribute.getName().getLocalPart();
 				if (tempQName.equalsIgnoreCase(aName)) {
-					return someAttributes.getValue(i);
+					return tempAttribute.getValue();
 				}
 			}
 			return null;
