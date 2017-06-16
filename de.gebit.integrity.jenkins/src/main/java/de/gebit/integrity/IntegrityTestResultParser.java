@@ -206,7 +206,8 @@ public class IntegrityTestResultParser extends DefaultTestResultParserImpl {
 
 						XMLInputFactory tempInputFactory = XMLInputFactory.newInstance();
 						tempInputFactory.setProperty(XMLInputFactory.IS_REPLACING_ENTITY_REFERENCES, false);
-						tempInputFactory.setProperty(XMLInputFactory.IS_SUPPORTING_EXTERNAL_ENTITIES, false);
+						tempInputFactory.setProperty(XMLInputFactory.IS_VALIDATING, false);
+						tempInputFactory.setProperty(XMLInputFactory.SUPPORT_DTD, false);
 						XMLEventReader tempEventReader = tempInputFactory.createXMLEventReader(tempFinalInputStream);
 
 						IntegrityContentHandler tempHandler = new IntegrityContentHandler();
