@@ -7,8 +7,8 @@
  *******************************************************************************/
 package de.gebit.integrity;
 
-import org.jenkinsci.plugins.workflow.steps.AbstractSynchronousNonBlockingStepExecution;
-import org.jenkinsci.plugins.workflow.steps.StepContextParameter;
+import org.jenkinsci.plugins.workflow.steps.StepContext;
+import org.jenkinsci.plugins.workflow.steps.SynchronousNonBlockingStepExecution;
 
 import hudson.FilePath;
 import hudson.Launcher;
@@ -16,35 +16,39 @@ import hudson.model.Run;
 import hudson.model.TaskListener;
 
 /**
- *
+ * The execution for pipeline builds.
  *
  * @author Rene Schneider - initial API and implementation
  *
  */
-public class IntegrityTestResultStepExecution extends AbstractSynchronousNonBlockingStepExecution<Void> {
+public class IntegrityTestResultStepExecution extends SynchronousNonBlockingStepExecution<Void> {
 
 	/**
 	 * Serial Version.
 	 */
 	private static final long serialVersionUID = -4922483821172053846L;
 
-	@StepContextParameter
-	private transient TaskListener listener;
+	/**
+	 * The step.
+	 */
+	private final IntegrityTestResultStep step;
 
-	@StepContextParameter
-	private transient FilePath workspace;
-
-	@StepContextParameter
-	private transient Run build;
-
-	@StepContextParameter
-	private transient Launcher launcher;
+	public IntegrityTestResultStepExecution(IntegrityTestResultStep aStep, StepContext aContext) {
+		super(aContext);
+		step = aStep;
+	}
 
 	@Override
 	protected Void run() throws Exception {
-		IntegrityTestResultRecorder tempRecorder = new IntegrityTestResultRecorder("*.html", false, false);
+		Run<?, ?> tempBuild = getContext().get(Run.class);
+		TaskListener tempListener = getContext().get(TaskListener.class);
+		Launcher tempLauncher = getContext().get(Launcher.class);
+		FilePath tempWorkspace = getContext().get(FilePath.class);
 
-		tempRecorder.perform(build, workspace, launcher, listener);
+		IntegrityTestResultRecorder tempRecorder = new IntegrityTestResultRecorder(step.getTestResultFileNamePattern(),
+				step.getIgnoreNoResults(), step.getFailOnTestErrors());
+
+		tempRecorder.perform(tempBuild, tempWorkspace, tempLauncher, tempListener);
 
 		return null;
 	}
