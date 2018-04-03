@@ -113,8 +113,6 @@ public class IntegrityTestResultParser extends DefaultTestResultParserImpl {
 	 * @param someReportFiles
 	 * @param aListener
 	 * @return
-	 * @throws InterruptedException
-	 * @throws IOException
 	 */
 	protected TestResult parse(FilePath workspace, List<File> someReportFiles, final TaskListener aListener) {
 		final IntegrityCompoundTestResult tempCompoundTestResult = new IntegrityCompoundTestResult();

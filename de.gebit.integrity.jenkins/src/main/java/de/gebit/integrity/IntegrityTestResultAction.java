@@ -76,7 +76,7 @@ public class IntegrityTestResultAction extends AbstractTestResultAction<Integrit
 
 	@Override
 	public String getDisplayName() {
-		return de.gebit.integrity.Messages.TestResultActionDisplayName();
+		return de.gebit.integrity.Messages.testResultActionDisplayName();
 	}
 
 	@Override
@@ -113,16 +113,16 @@ public class IntegrityTestResultAction extends AbstractTestResultAction<Integrit
 		int tempScore = (tempTotalCount == 0) ? 100 : (int) (100.0 * (1.0 - ((double) tempFailCount) / tempTotalCount));
 		Localizable tempDescription = null;
 		if (tempTotalCount == 0) {
-			tempDescription = de.gebit.integrity.Messages._NoTestResult();
+			tempDescription = de.gebit.integrity.Messages._noTestResult();
 		} else {
-			tempDescription = de.gebit.integrity.Messages._TestResult(getPassCount(), getFailCount(), getSkipCount(),
+			tempDescription = de.gebit.integrity.Messages._testResult(getPassCount(), getFailCount(), getSkipCount(),
 					getCallExceptionCount());
 		}
 		return new HealthReport(tempScore, tempDescription);
 	}
 
 	public String getSummary() {
-		return de.gebit.integrity.Messages.TestResult(getPassCount(), getFailCount(), getSkipCount(),
+		return de.gebit.integrity.Messages.testResult(getPassCount(), getFailCount(), getSkipCount(),
 				getCallExceptionCount());
 	}
 

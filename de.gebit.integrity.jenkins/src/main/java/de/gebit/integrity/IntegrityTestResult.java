@@ -123,6 +123,12 @@ public class IntegrityTestResult extends TabulatedResult {
 		this.contentType = aContentType;
 	}
 
+	private void readObject(java.io.ObjectInputStream stream) throws IOException, ClassNotFoundException {
+		parent = null;
+
+		stream.defaultReadObject();
+	};
+
 	@Override
 	public TestObject getParent() {
 		return parent;
@@ -173,7 +179,11 @@ public class IntegrityTestResult extends TabulatedResult {
 			tempGzipStream = new GZIPInputStream(tempInputStream);
 
 			byte[] tempSizeBytes = new byte[4];
-			tempGzipStream.read(tempSizeBytes);
+			int tempBytesRead = tempGzipStream.read(tempSizeBytes);
+			if (tempBytesRead == -1) {
+				throw new RuntimeException("No data");
+			}
+
 			int tempSize = ByteBuffer.wrap(tempSizeBytes).getInt();
 			if (tempSize > 1024 * 1024 * 1024) {
 				// Protect against absurdly high sizes and thus the risk of OutOfMemoryExceptions

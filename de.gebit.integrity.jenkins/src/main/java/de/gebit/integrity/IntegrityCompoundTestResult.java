@@ -72,7 +72,7 @@ public class IntegrityCompoundTestResult extends TabulatedResult {
 	/**
 	 * Whether the currently loaded children are persisted.
 	 */
-	private transient boolean hasPersistedChildren = true;
+	private transient boolean hasPersistedChildren;
 
 	/**
 	 * Total count of failed tests over all children.

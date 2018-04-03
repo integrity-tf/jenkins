@@ -56,7 +56,8 @@ public class IntegrityTestResultRecorder extends Recorder {
 	/**
 	 * Creates a new instance.
 	 * 
-	 * @param testResultFileNamePattern the result file name pattern to use
+	 * @param testResultFileNamePattern
+	 *            the result file name pattern to use
 	 */
 	@DataBoundConstructor
 	// SUPPRESS CHECKSTYLE LONG ParameterNames
@@ -92,7 +93,7 @@ public class IntegrityTestResultRecorder extends Recorder {
 	@Override
 	public Collection<Action> getProjectActions(AbstractProject<?, ?> aProject) {
 		// SUPPRESS CHECKSTYLE Whitespace
-		return Collections.<Action>singleton(new IntegrityProjectAction(aProject));
+		return Collections.<Action> singleton(new IntegrityProjectAction(aProject));
 	}
 
 	@Override
@@ -104,15 +105,18 @@ public class IntegrityTestResultRecorder extends Recorder {
 		final String tempExpandedTestResults = aBuild.getEnvironment(aListener).expand(this.testResultFileNamePattern);
 
 		try {
-            FilePath workspace = aBuild.getWorkspace();
+			FilePath workspace = aBuild.getWorkspace();
+			if (workspace == null) {
+				throw new RuntimeException("no workspace");
+			}
 			IntegrityCompoundTestResult tempResult = (IntegrityCompoundTestResult) new IntegrityTestResultParser()
 					.parseResult(tempExpandedTestResults, aBuild, workspace, aLauncher, aListener);
 
 			try {
 				tempResultAction = new IntegrityTestResultAction(tempResult, aListener);
 			} catch (NullPointerException exc) {
-				throw new AbortException(de.gebit.integrity.Messages.IntegrityTestResultRecorder_BadXML(
-						testResultFileNamePattern));
+				throw new AbortException(
+						de.gebit.integrity.Messages.integrityTestResultRecorder_BadXML(testResultFileNamePattern));
 			}
 		} catch (AbortException exc) {
 			if (aBuild.getResult() == Result.FAILURE) {
@@ -123,10 +127,8 @@ public class IntegrityTestResultRecorder extends Recorder {
 			if (!Boolean.TRUE.equals(ignoreNoResults)) {
 				aBuild.setResult(Result.FAILURE);
 			} else {
-				aListener
-						.getLogger()
-						.println(
-								"Not failing the build because the plugin is configured to ignore if test results are not found");
+				aListener.getLogger().println(
+						"Not failing the build because the plugin is configured to ignore if test results are not found");
 			}
 			return true;
 		} catch (IOException exc) {

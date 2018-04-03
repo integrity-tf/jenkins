@@ -12,15 +12,15 @@ import java.io.IOException;
 import java.io.InputStream;
 
 /**
- * This stream filter is used to replace '<' and '>' with XML entities inside attribute values in the xmldata section
- * of a HTML Integrity result file. The reason for the existence of this (indeed rather strange-looking) code is pretty
- * much the same as the reason for the very similar code part in 
- * de.gebit.integrity.runner.callbacks.xml.XmlWriterTestCallback.onExecutionFinish(TestModel, SuiteSummaryResult),
- * which performs this translation already during writing of the HTML file: Since the XSLT transformator is configured
- * to output HTML, it apparently outputs '<' and '>' as characters in the inline XML part. This part however should
- * remain conformant to strict XML, as it is intended to be parsed by XML parsers like the one used in the Jenkins
- * Plugin. So to get this desired output we need to replace these special characters with entities again to fix this
- * particular problem.
+ * This stream filter is used to replace opening and closing brackets with XML entities inside attribute values in the
+ * xmldata section of a HTML Integrity result file. The reason for the existence of this (indeed rather strange-looking)
+ * code is pretty much the same as the reason for the very similar code part in
+ * de.gebit.integrity.runner.callbacks.xml.XmlWriterTestCallback.onExecutionFinish(TestModel, SuiteSummaryResult), which
+ * performs this translation already during writing of the HTML file: Since the XSLT transformator is configured to
+ * output HTML, it apparently outputs brackets as characters in the inline XML part. This part however should remain
+ * conformant to strict XML, as it is intended to be parsed by XML parsers like the one used in the Jenkins Plugin. So
+ * to get this desired output we need to replace these special characters with entities again to fix this particular
+ * problem.
  * 
  * @author Rene Schneider - initial API and implementation
  *
@@ -45,7 +45,7 @@ public class FilteringHTMLInputStream extends FilterInputStream {
 	/**
 	 * Tag end char.
 	 */
-	private static final char TRIGGER_TAG_END = '<';
+	private static final char TRIGGER_TAG_END = '>';
 
 	/**
 	 * Attribute data start char.
@@ -98,11 +98,12 @@ public class FilteringHTMLInputStream extends FilterInputStream {
 
 			return tempChar;
 		} else {
-			char tempChar = (char) super.read();
+			int tempInt = super.read();
 
-			if (tempChar == -1) {
+			if (tempInt == -1) {
 				return -1;
 			}
+			char tempChar = (char) tempInt;
 
 			if (!pastXmlPart) {
 				if (!insideAttribute) {

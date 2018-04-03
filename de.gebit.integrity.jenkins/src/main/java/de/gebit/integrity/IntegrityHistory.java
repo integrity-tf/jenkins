@@ -184,37 +184,7 @@ public class IntegrityHistory {
 			rangeAxis.setStandardTickUnits(NumberAxis.createIntegerTickUnits());
 			rangeAxis.setAutoRange(true);
 
-			StackedAreaRenderer tempAreaRenderer = new StackedAreaRenderer2() {
-
-				/**
-				 * The serialization version.
-				 */
-				private static final long serialVersionUID = 2284582320567360791L;
-
-				@Override
-				public Paint getItemPaint(int aRow, int aColumn) {
-					ChartLabel tempKey = (ChartLabel) dataset.getColumnKey(aColumn);
-					if (tempKey.getColor() != null) {
-						return tempKey.getColor();
-					}
-					return super.getItemPaint(aRow, aColumn);
-				}
-
-				@Override
-				public String generateURL(CategoryDataset aDataset, int aRow, int aColumn) {
-					ChartLabel tempLabel = (ChartLabel) aDataset.getColumnKey(aColumn);
-					return tempLabel.getUrl();
-				}
-
-				@Override
-				public String generateToolTip(CategoryDataset aDataset, int aRow, int aColumn) {
-					ChartLabel tempLabel = (ChartLabel) aDataset.getColumnKey(aColumn);
-					TestResult tempResult = tempLabel.result;
-					return tempResult.getRun().getDisplayName() + ": " + tempResult.getPassCount()
-							+ " successful tests, " + tempResult.getFailCount() + " failures, "
-							+ tempResult.getSkipCount() + " exceptions during tests";
-				}
-			};
+			StackedAreaRenderer tempAreaRenderer = new MyStackedAreaRenderer(dataset);
 			plot.setRenderer(tempAreaRenderer);
 			tempAreaRenderer.setSeriesPaint(0, ColorPalette.YELLOW); // Failures.
 			tempAreaRenderer.setSeriesPaint(1, ColorPalette.RED); // Skips.
@@ -227,7 +197,56 @@ public class IntegrityHistory {
 		}
 	}
 
-	private class ChartLabel implements Comparable<ChartLabel> {
+	private static class MyStackedAreaRenderer extends StackedAreaRenderer2 {
+
+		/**
+		 * The serialization version.
+		 */
+		private static final long serialVersionUID = 2284582320567360791L;
+
+		private CategoryDataset dataset;
+
+		public MyStackedAreaRenderer(CategoryDataset aDataset) {
+			super();
+			dataset = aDataset;
+		}
+
+		@Override
+		public Paint getItemPaint(int aRow, int aColumn) {
+			ChartLabel tempKey = (ChartLabel) dataset.getColumnKey(aColumn);
+			if (tempKey.getColor() != null) {
+				return tempKey.getColor();
+			}
+			return super.getItemPaint(aRow, aColumn);
+		}
+
+		@Override
+		public String generateURL(CategoryDataset aDataset, int aRow, int aColumn) {
+			ChartLabel tempLabel = (ChartLabel) aDataset.getColumnKey(aColumn);
+			return tempLabel.getUrl();
+		}
+
+		@Override
+		public String generateToolTip(CategoryDataset aDataset, int aRow, int aColumn) {
+			ChartLabel tempLabel = (ChartLabel) aDataset.getColumnKey(aColumn);
+			TestResult tempResult = tempLabel.result;
+			return tempResult.getRun().getDisplayName() + ": " + tempResult.getPassCount() + " successful tests, "
+					+ tempResult.getFailCount() + " failures, " + tempResult.getSkipCount()
+					+ " exceptions during tests";
+		}
+
+		@Override
+		public boolean equals(Object obj) {
+			return super.equals(obj);
+		}
+
+		@Override
+		public int hashCode() {
+			return super.hashCode();
+		}
+	};
+
+	private static class ChartLabel implements Comparable<ChartLabel> {
 
 		/**
 		 * The test result.
