@@ -7,17 +7,24 @@
  *******************************************************************************/
 package de.gebit.integrity;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+
 import org.jvnet.localizer.Localizable;
 import org.kohsuke.stapler.StaplerProxy;
 import org.kohsuke.stapler.export.Exported;
 
 import com.thoughtworks.xstream.XStream;
 
-import hudson.model.BuildListener;
+import hudson.model.Action;
 import hudson.model.HealthReport;
+import hudson.model.Run;
+import hudson.model.TaskListener;
 import hudson.tasks.test.AbstractTestResultAction;
 import hudson.util.HeapSpaceStringConverter;
 import hudson.util.XStream2;
+import jenkins.tasks.SimpleBuildStep;
 
 /**
  * This result action is responsible for displaying the test result overview on the page of individual builds.
@@ -25,12 +32,17 @@ import hudson.util.XStream2;
  * @author Rene Schneider - initial API and implementation
  */
 public class IntegrityTestResultAction extends AbstractTestResultAction<IntegrityTestResultAction>
-		implements StaplerProxy {
+		implements StaplerProxy, SimpleBuildStep.LastBuildAction {
 
 	/**
 	 * The result to display.
 	 */
 	private IntegrityCompoundTestResult result;
+
+	/**
+	 * The project actions.
+	 */
+	private final List<IntegrityProjectAction> projectActions;
 
 	/**
 	 * The XStream instance used for result persistence.
@@ -55,9 +67,18 @@ public class IntegrityTestResultAction extends AbstractTestResultAction<Integrit
 	 * @param aListener
 	 *            the listener
 	 */
-	public IntegrityTestResultAction(IntegrityCompoundTestResult aResult, BuildListener aListener) {
+	public IntegrityTestResultAction(Run<?, ?> aBuild, IntegrityCompoundTestResult aResult, TaskListener aListener) {
 		result = aResult;
 		aResult.setParentAction(this);
+
+		List<IntegrityProjectAction> projectActions = new ArrayList<>();
+		projectActions.add(new IntegrityProjectAction(aBuild.getParent()));
+		this.projectActions = projectActions;
+	}
+
+	@Override
+	public Collection<? extends Action> getProjectActions() {
+		return this.projectActions;
 	}
 
 	@Override

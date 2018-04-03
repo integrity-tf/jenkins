@@ -29,7 +29,7 @@
   </pluginRepositories>
   
   <properties>
-  	<jenkins.version>2.114</jenkins.version>
+  	<jenkins.version>2.107</jenkins.version>
   	<java.level>8</java.level>
   	<sonar.exclusions>de/gebit/integrity/Messages.java</sonar.exclusions>
   </properties>

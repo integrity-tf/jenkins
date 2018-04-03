@@ -7,9 +7,9 @@
  *******************************************************************************/
 package de.gebit.integrity;
 
-import hudson.model.AbstractBuild;
-import hudson.model.AbstractProject;
 import hudson.model.Action;
+import hudson.model.Job;
+import hudson.model.Run;
 
 /**
  * The project action for Integrity Test Results. This class is responsible for displaying the Integrity overview on the
@@ -22,14 +22,14 @@ public class IntegrityProjectAction implements Action {
 	/**
 	 * The project.
 	 */
-	private AbstractProject<?, ?> project;
+	private Job<?, ?> project;
 
 	/**
 	 * Creates an instance.
 	 * 
 	 * @param aProject
 	 */
-	public IntegrityProjectAction(AbstractProject<?, ?> aProject) {
+	public IntegrityProjectAction(Job<?, ?> aProject) {
 		this.project = aProject;
 	}
 
@@ -78,8 +78,8 @@ public class IntegrityProjectAction implements Action {
 	 * Returns the newest available results.
 	 */
 	public IntegrityTestResultAction getLatestResults() {
-		final AbstractBuild<?, ?> tempLastSuccessfulBuild = project.getLastSuccessfulBuild();
-		AbstractBuild<?, ?> tempBuild = project.getLastBuild();
+		final Run<?, ?> tempLastSuccessfulBuild = project.getLastSuccessfulBuild();
+		Run<?, ?> tempBuild = project.getLastBuild();
 		while (tempBuild != null) {
 			IntegrityTestResultAction tempResultAction = tempBuild.getAction(IntegrityTestResultAction.class);
 			if (tempResultAction != null) {

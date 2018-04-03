@@ -35,7 +35,7 @@ public class IntegrityTestResultStep extends AbstractStepImpl {
 
 		@Override
 		public String getFunctionName() {
-			return "Integrity Test Result Archive";
+			return "integrityTestResultArchive";
 		}
 
 		@Nonnull
