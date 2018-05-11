@@ -123,7 +123,17 @@ public class IntegrityCompoundTestResult extends TabulatedResult {
 	}
 
 	private XmlFile getXmlFile() {
-		return new XmlFile(XSTREAM, new File(getOwner().getRootDir(), "integrityResultData.xml"));
+		File tempRootDir = null;
+		Run<?, ?> tempRun = getRun();
+		if (tempRun != null) {
+			tempRootDir = tempRun.getRootDir();
+		}
+
+		if (tempRootDir == null) {
+			return null;
+		} else {
+			return new XmlFile(XSTREAM, new File(tempRootDir, "integrityResultData.xml"));
+		}
 	}
 
 	private void sortChildren() {
@@ -142,7 +152,12 @@ public class IntegrityCompoundTestResult extends TabulatedResult {
 	@SuppressWarnings("unchecked")
 	private void loadChildren() {
 		try {
-			tempChildren = (List<IntegrityTestResult>) getXmlFile().read();
+			XmlFile tempFile = getXmlFile();
+			if (tempFile != null) {
+				tempChildren = (List<IntegrityTestResult>) getXmlFile().read();
+			} else {
+				tempChildren = new ArrayList<IntegrityTestResult>();
+			}
 		} catch (IOException exc) {
 			exc.printStackTrace();
 			tempChildren = new ArrayList<IntegrityTestResult>();
@@ -155,13 +170,15 @@ public class IntegrityCompoundTestResult extends TabulatedResult {
 	private void persistChildren() {
 		if (tempChildren != null) {
 			try {
-				getXmlFile().write(tempChildren);
+				XmlFile tempFile = getXmlFile();
+				if (tempFile != null) {
+					getXmlFile().write(tempChildren);
+					hasPersistedChildren = true;
+				}
 			} catch (IOException exc) {
 				exc.printStackTrace();
 			}
 		}
-
-		hasPersistedChildren = true;
 	}
 
 	public void updateCounts() {

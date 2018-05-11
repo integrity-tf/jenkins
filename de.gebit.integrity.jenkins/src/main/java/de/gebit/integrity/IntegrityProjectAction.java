@@ -10,6 +10,7 @@ package de.gebit.integrity;
 import hudson.model.Action;
 import hudson.model.Job;
 import hudson.model.Run;
+import hudson.util.RunList;
 
 /**
  * The project action for Integrity Test Results. This class is responsible for displaying the Integrity overview on the
@@ -22,15 +23,15 @@ public class IntegrityProjectAction implements Action {
 	/**
 	 * The project.
 	 */
-	private Job<?, ?> project;
+	private transient Job<?, ?> job;
 
 	/**
 	 * Creates an instance.
 	 * 
-	 * @param aProject
+	 * @param aJob
 	 */
-	public IntegrityProjectAction(Job<?, ?> aProject) {
-		this.project = aProject;
+	public IntegrityProjectAction(Job<?, ?> aJob) {
+		this.job = aJob;
 	}
 
 	@Override
@@ -63,23 +64,16 @@ public class IntegrityProjectAction implements Action {
 	 * @return
 	 */
 	public IntegrityHistory getTrend() {
-		IntegrityTestResultAction tempLatestResults = getLatestResults();
-		if (tempLatestResults == null) {
-			return null;
-		}
-		IntegrityCompoundTestResult tempResult = tempLatestResults.getResult();
-		if (tempResult == null) {
-			return null;
-		}
-		return new IntegrityHistory(tempResult);
+		RunList<?> tempRuns = job.getBuilds();
+		return new IntegrityHistory(tempRuns);
 	}
 
 	/**
 	 * Returns the newest available results.
 	 */
 	public IntegrityTestResultAction getLatestResults() {
-		final Run<?, ?> tempLastSuccessfulBuild = project.getLastSuccessfulBuild();
-		Run<?, ?> tempBuild = project.getLastBuild();
+		final Run<?, ?> tempLastSuccessfulBuild = job.getLastSuccessfulBuild();
+		Run<?, ?> tempBuild = job.getLastBuild();
 		while (tempBuild != null) {
 			IntegrityTestResultAction tempResultAction = tempBuild.getAction(IntegrityTestResultAction.class);
 			if (tempResultAction != null) {

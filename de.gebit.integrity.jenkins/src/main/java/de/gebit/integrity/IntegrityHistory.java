@@ -10,7 +10,6 @@ package de.gebit.integrity;
 import java.awt.Color;
 import java.awt.Paint;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 import org.jfree.chart.ChartFactory;
@@ -32,6 +31,7 @@ import hudson.util.ChartUtil;
 import hudson.util.ColorPalette;
 import hudson.util.DataSetBuilder;
 import hudson.util.Graph;
+import hudson.util.RunList;
 import hudson.util.ShiftedCategoryAxis;
 import hudson.util.StackedAreaRenderer2;
 import jenkins.model.Jenkins;
@@ -47,23 +47,16 @@ public class IntegrityHistory {
 	/**
 	 * The test result used as base for the graph.
 	 */
-	private final IntegrityCompoundTestResult testResult;
+	private final RunList<?> runs;
 
 	/**
 	 * Creates a new instance.
 	 * 
-	 * @param aTestResult
-	 *            the test result
+	 * @param aRunList
+	 *            the run list
 	 */
-	public IntegrityHistory(IntegrityCompoundTestResult aTestResult) {
-		this.testResult = aTestResult;
-		if (testResult == null) {
-			throw new IllegalArgumentException("aTestResult must not be null");
-		}
-	}
-
-	public IntegrityCompoundTestResult getTestResult() {
-		return testResult;
+	public IntegrityHistory(RunList<?> aRunList) {
+		this.runs = aRunList;
 	}
 
 	/**
@@ -72,7 +65,7 @@ public class IntegrityHistory {
 	 * @return true if available, false otherwise
 	 */
 	public boolean historyAvailable() {
-		return testResult.getRun().getParent().getBuilds().size() > 1;
+		return runs.size() > 1;
 	}
 
 	/**
@@ -86,27 +79,21 @@ public class IntegrityHistory {
 	 */
 	public List<TestResult> getList(int aStart, int anEnd) {
 		List<TestResult> tempList = new ArrayList<TestResult>();
-		int tempEnd = Math.min(anEnd, testResult.getRun().getParent().getBuilds().size());
-		for (Run<?, ?> tempBuild : testResult.getRun().getParent().getBuilds().subList(aStart, tempEnd)) {
+		int tempEnd = Math.min(anEnd, runs.size());
+		for (Run<?, ?> tempBuild : runs.subList(aStart, tempEnd)) {
 			if (tempBuild.isBuilding()) {
 				continue;
 			}
-			if (tempBuild instanceof AbstractBuild<?, ?>) {
-				TestResult tempResult = testResult.getResultInRun(tempBuild);
-				if (tempResult != null) {
-					tempList.add(tempResult);
-				}
+			IntegrityTestResultAction tempResultAction = tempBuild.getAction(IntegrityTestResultAction.class);
+			if (tempResultAction != null && tempResultAction.getTarget() != null) {
+				tempList.add((IntegrityCompoundTestResult) tempResultAction.getTarget());
 			}
 		}
 		return tempList;
 	}
 
 	public List<TestResult> getList() {
-		Run<?, ?> tempRun = testResult.getRun();
-		if (tempRun != null) {
-			return getList(0, tempRun.getParent().getBuilds().size());
-		}
-		return Collections.emptyList();
+		return getList(0, runs.size());
 	}
 
 	/**

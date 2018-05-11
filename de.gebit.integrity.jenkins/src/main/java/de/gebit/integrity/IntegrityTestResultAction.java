@@ -19,6 +19,7 @@ import com.thoughtworks.xstream.XStream;
 
 import hudson.model.Action;
 import hudson.model.HealthReport;
+import hudson.model.Job;
 import hudson.model.Run;
 import hudson.model.TaskListener;
 import hudson.tasks.test.AbstractTestResultAction;
@@ -42,7 +43,7 @@ public class IntegrityTestResultAction extends AbstractTestResultAction<Integrit
 	/**
 	 * The project actions.
 	 */
-	private final List<IntegrityProjectAction> projectActions;
+	private transient List<IntegrityProjectAction> projectActions;
 
 	/**
 	 * The XStream instance used for result persistence.
@@ -70,14 +71,17 @@ public class IntegrityTestResultAction extends AbstractTestResultAction<Integrit
 	public IntegrityTestResultAction(Run<?, ?> aBuild, IntegrityCompoundTestResult aResult, TaskListener aListener) {
 		result = aResult;
 		aResult.setParentAction(this);
-
-		List<IntegrityProjectAction> projectActions = new ArrayList<>();
-		projectActions.add(new IntegrityProjectAction(aBuild.getParent()));
-		this.projectActions = projectActions;
+		run = aBuild;
 	}
 
 	@Override
 	public Collection<? extends Action> getProjectActions() {
+		if (this.projectActions == null) {
+			List<IntegrityProjectAction> projectActions = new ArrayList<>();
+			projectActions.add(new IntegrityProjectAction((Job<?, ?>) run.getParent()));
+			this.projectActions = projectActions;
+		}
+
 		return this.projectActions;
 	}
 
