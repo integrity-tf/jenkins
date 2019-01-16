@@ -29,7 +29,7 @@
   </pluginRepositories>
   
   <properties>
-  	<jenkins.version>2.107</jenkins.version>
+  	<jenkins.version>2.138</jenkins.version>
   	<java.level>8</java.level>
   	<sonar.exclusions>de/gebit/integrity/Messages.java</sonar.exclusions>
   </properties>
@@ -51,6 +51,12 @@
 		<groupId>org.jenkins-ci.plugins.workflow</groupId>
 		<artifactId>workflow-step-api</artifactId>
 		<version>2.14</version>
+	</dependency>
+	
+	<dependency>
+		<groupId>io.jenkins.stapler</groupId>
+		<artifactId>jenkins-stapler-support</artifactId>
+		<version>1.0</version>
 	</dependency>
   </dependencies>
 

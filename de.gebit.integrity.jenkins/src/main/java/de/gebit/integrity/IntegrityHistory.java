@@ -35,6 +35,7 @@ import hudson.util.RunList;
 import hudson.util.ShiftedCategoryAxis;
 import hudson.util.StackedAreaRenderer2;
 import jenkins.model.Jenkins;
+import jenkins.security.stapler.StaplerAccessibleType;
 
 /**
  * The history graph view for Integrity result history. Heavily based on the standard test history view in Jenkins,
@@ -42,6 +43,7 @@ import jenkins.model.Jenkins;
  * 
  * @author Rene Schneider - initial API and implementation
  */
+@StaplerAccessibleType
 public class IntegrityHistory {
 
 	/**
@@ -184,7 +186,7 @@ public class IntegrityHistory {
 		}
 	}
 
-	private static class MyStackedAreaRenderer extends StackedAreaRenderer2 {
+	public static class MyStackedAreaRenderer extends StackedAreaRenderer2 {
 
 		/**
 		 * The serialization version.
@@ -200,10 +202,6 @@ public class IntegrityHistory {
 
 		@Override
 		public Paint getItemPaint(int aRow, int aColumn) {
-			ChartLabel tempKey = (ChartLabel) dataset.getColumnKey(aColumn);
-			if (tempKey.getColor() != null) {
-				return tempKey.getColor();
-			}
 			return super.getItemPaint(aRow, aColumn);
 		}
 
@@ -233,7 +231,7 @@ public class IntegrityHistory {
 		}
 	};
 
-	private static class ChartLabel implements Comparable<ChartLabel> {
+	public static class ChartLabel implements Comparable<ChartLabel> {
 
 		/**
 		 * The test result.
@@ -247,7 +245,6 @@ public class IntegrityHistory {
 
 		public ChartLabel(TestResult aResult) {
 			this.result = aResult;
-			this.url = null;
 		}
 
 		public String getUrl() {
@@ -275,7 +272,7 @@ public class IntegrityHistory {
 				return false;
 			}
 			ChartLabel tempOtherObject = (ChartLabel) anOtherObject;
-			return this.result == tempOtherObject.result;
+			return this.result.equals(tempOtherObject.result) && this.result == tempOtherObject.result;
 		}
 
 		public Color getColor() {
