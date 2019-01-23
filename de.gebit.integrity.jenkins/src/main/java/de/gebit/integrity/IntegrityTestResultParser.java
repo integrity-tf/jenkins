@@ -12,8 +12,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.SequenceInputStream;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -49,6 +51,25 @@ public class IntegrityTestResultParser extends DefaultTestResultParserImpl {
 	 * The serial version.
 	 */
 	private static final long serialVersionUID = 4841424533054027138L;
+
+	/**
+	 * The system property to control the maximum number of threads used to parse results.
+	 */
+	private static final String MAX_PARSER_THREADS_SYSTEM_PROPERTY = "integrity.threadcount";
+
+	/**
+	 * The default number of threads to use when parsing results.
+	 */
+	private static final int MAX_PARSER_THREADS_DEFAULT = 16;
+
+	/**
+	 * The actual number of threads used when parsing results. Will be whatever is smaller: either the number of
+	 * processor cores, or whatever is configured via system property {@link #MAX_PARSER_THREADS_SYSTEM_PROPERTY} (if
+	 * nothing is configured, the default {@link #MAX_PARSER_THREADS_DEFAULT} is used).
+	 */
+	private static final int MAX_PARSER_THREADS = Math.min(Integer.parseInt(
+			System.getProperty(MAX_PARSER_THREADS_SYSTEM_PROPERTY, Integer.toString(MAX_PARSER_THREADS_DEFAULT))),
+			Runtime.getRuntime().availableProcessors());
 
 	@Override
 	protected TestResult parse(List<File> someReportFiles, Launcher launcher, TaskListener aListener)
@@ -117,10 +138,23 @@ public class IntegrityTestResultParser extends DefaultTestResultParserImpl {
 	protected TestResult parse(FilePath workspace, List<File> someReportFiles, final TaskListener aListener) {
 		final IntegrityCompoundTestResult tempCompoundTestResult = new IntegrityCompoundTestResult();
 
-		ExecutorService tempExecutor = new ThreadPoolExecutor(Runtime.getRuntime().availableProcessors(),
-				Integer.MAX_VALUE, 10L, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>());
+		ExecutorService tempExecutor = new ThreadPoolExecutor(MAX_PARSER_THREADS, MAX_PARSER_THREADS, 10L,
+				TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>());
+		aListener.getLogger().println("Will parse Integrity test results using " + MAX_PARSER_THREADS + " threads...");
 
+		Set<String> tempUsedResultNames = new HashSet<>();
 		for (final File tempFile : someReportFiles) {
+			// Prevent collisions if the same name is used by two files
+			String tempResultName = tempFile.getName();
+			int tempSuffix = 0;
+			while (tempUsedResultNames.contains(tempResultName)) {
+				tempSuffix++;
+				tempResultName = tempFile.getName() + "_" + tempSuffix;
+			}
+			tempUsedResultNames.add(tempResultName);
+
+			final String tempFinalResultName = tempResultName;
+
 			Runnable tempRunnable = new Runnable() {
 
 				@Override
@@ -218,7 +252,7 @@ public class IntegrityTestResultParser extends DefaultTestResultParserImpl {
 						}
 
 						tempCompoundTestResult.addChild(new IntegrityTestResult(tempCompoundTestResult,
-								tempFile.getName(), tempHandler.getTestName(), tempBuffer, tempContentType,
+								tempFinalResultName, tempHandler.getTestName(), tempBuffer, tempContentType,
 								tempHandler.getSuccessCount(), tempHandler.getFailureCount(),
 								tempHandler.getTestExceptionCount(), tempHandler.getCallExceptionCount()));
 
