@@ -12,8 +12,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.SequenceInputStream;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -140,7 +142,17 @@ public class IntegrityTestResultParser extends DefaultTestResultParserImpl {
 				TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>());
 		aListener.getLogger().println("Will parse Integrity test results using " + MAX_PARSER_THREADS + " threads...");
 
+		Set<String> tempUsedResultNames = new HashSet<>();
 		for (final File tempFile : someReportFiles) {
+			// Prevent collisions if the same name is used by two files
+			String tempResultName = tempFile.getName();
+			int tempSuffix = 0;
+			while (tempUsedResultNames.contains(tempResultName)) {
+				tempSuffix++;
+				tempResultName = tempFile.getName() + "_" + tempSuffix;
+			}
+			tempUsedResultNames.add(tempResultName);
+
 			Runnable tempRunnable = new Runnable() {
 
 				@Override
@@ -237,10 +249,10 @@ public class IntegrityTestResultParser extends DefaultTestResultParserImpl {
 							tempEventReader.close();
 						}
 
-						tempCompoundTestResult.addChild(new IntegrityTestResult(tempCompoundTestResult,
-								tempFile.getName(), tempHandler.getTestName(), tempBuffer, tempContentType,
-								tempHandler.getSuccessCount(), tempHandler.getFailureCount(),
-								tempHandler.getTestExceptionCount(), tempHandler.getCallExceptionCount()));
+						tempCompoundTestResult.addChild(new IntegrityTestResult(tempCompoundTestResult, tempResultName,
+								tempHandler.getTestName(), tempBuffer, tempContentType, tempHandler.getSuccessCount(),
+								tempHandler.getFailureCount(), tempHandler.getTestExceptionCount(),
+								tempHandler.getCallExceptionCount()));
 
 						aListener.getLogger().println(
 								"Successfully parsed Integrity test result file " + tempFile.getAbsolutePath());
