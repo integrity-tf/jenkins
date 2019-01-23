@@ -8,7 +8,7 @@
 
   <groupId>de.gebit.integrity</groupId>
   <artifactId>de.gebit.integrity.jenkins</artifactId>
-  <version>0.12.1-SNAPSHOT</version>
+  <version>0.12.2-SNAPSHOT</version>
   <packaging>hpi</packaging>
   
   <name>Integrity Test Framework - Jenkins Plugin</name>
