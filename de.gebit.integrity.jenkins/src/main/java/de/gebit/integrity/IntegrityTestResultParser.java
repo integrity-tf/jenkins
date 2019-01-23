@@ -153,6 +153,8 @@ public class IntegrityTestResultParser extends DefaultTestResultParserImpl {
 			}
 			tempUsedResultNames.add(tempResultName);
 
+			final String tempFinalResultName = tempResultName;
+
 			Runnable tempRunnable = new Runnable() {
 
 				@Override
@@ -249,10 +251,10 @@ public class IntegrityTestResultParser extends DefaultTestResultParserImpl {
 							tempEventReader.close();
 						}
 
-						tempCompoundTestResult.addChild(new IntegrityTestResult(tempCompoundTestResult, tempResultName,
-								tempHandler.getTestName(), tempBuffer, tempContentType, tempHandler.getSuccessCount(),
-								tempHandler.getFailureCount(), tempHandler.getTestExceptionCount(),
-								tempHandler.getCallExceptionCount()));
+						tempCompoundTestResult.addChild(new IntegrityTestResult(tempCompoundTestResult,
+								tempFinalResultName, tempHandler.getTestName(), tempBuffer, tempContentType,
+								tempHandler.getSuccessCount(), tempHandler.getFailureCount(),
+								tempHandler.getTestExceptionCount(), tempHandler.getCallExceptionCount()));
 
 						aListener.getLogger().println(
 								"Successfully parsed Integrity test result file " + tempFile.getAbsolutePath());
