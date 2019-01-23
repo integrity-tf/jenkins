@@ -50,6 +50,25 @@ public class IntegrityTestResultParser extends DefaultTestResultParserImpl {
 	 */
 	private static final long serialVersionUID = 4841424533054027138L;
 
+	/**
+	 * The system property to control the maximum number of threads used to parse results.
+	 */
+	private static final String MAX_PARSER_THREADS_SYSTEM_PROPERTY = "integrity.threadcount";
+
+	/**
+	 * The default number of threads to use when parsing results.
+	 */
+	private static final int MAX_PARSER_THREADS_DEFAULT = 16;
+
+	/**
+	 * The actual number of threads used when parsing results. Will be whatever is smaller: either the number of
+	 * processor cores, or whatever is configured via system property {@link #MAX_PARSER_THREADS_SYSTEM_PROPERTY} (if
+	 * nothing is configured, the default {@link #MAX_PARSER_THREADS_DEFAULT} is used).
+	 */
+	private static final int MAX_PARSER_THREADS = Math.min(Integer.parseInt(
+			System.getProperty(MAX_PARSER_THREADS_SYSTEM_PROPERTY, Integer.toString(MAX_PARSER_THREADS_DEFAULT))),
+			Runtime.getRuntime().availableProcessors());
+
 	@Override
 	protected TestResult parse(List<File> someReportFiles, Launcher launcher, TaskListener aListener)
 			throws InterruptedException, IOException {
@@ -117,8 +136,9 @@ public class IntegrityTestResultParser extends DefaultTestResultParserImpl {
 	protected TestResult parse(FilePath workspace, List<File> someReportFiles, final TaskListener aListener) {
 		final IntegrityCompoundTestResult tempCompoundTestResult = new IntegrityCompoundTestResult();
 
-		ExecutorService tempExecutor = new ThreadPoolExecutor(Runtime.getRuntime().availableProcessors(),
-				Integer.MAX_VALUE, 10L, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>());
+		ExecutorService tempExecutor = new ThreadPoolExecutor(MAX_PARSER_THREADS, MAX_PARSER_THREADS, 10L,
+				TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>());
+		aListener.getLogger().println("Will parse Integrity test results using " + MAX_PARSER_THREADS + " threads...");
 
 		for (final File tempFile : someReportFiles) {
 			Runnable tempRunnable = new Runnable() {
