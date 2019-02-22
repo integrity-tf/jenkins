@@ -300,14 +300,47 @@ public class IntegrityCompoundTestResult extends TabulatedResult {
 		return failCount;
 	}
 
+	public int getFailChildCount() {
+		int tempCount = 0;
+		for (TestResult tempChild : getChildren()) {
+			if (tempChild.getFailCount() > 0) {
+				tempCount++;
+			}
+		}
+
+		return tempCount;
+	}
+
 	@Override
 	public int getPassCount() {
 		return passCount;
 	}
 
+	public int getPassChildCount() {
+		int tempCount = 0;
+		for (TestResult tempChild : getChildren()) {
+			if (tempChild.getFailCount() == 0 && ((IntegrityTestResult) tempChild).getExceptionCount() == 0) {
+				tempCount++;
+			}
+		}
+
+		return tempCount;
+	}
+
 	@Override
 	public int getSkipCount() {
 		return skipCount;
+	}
+
+	public int getExceptionChildCount() {
+		int tempCount = 0;
+		for (TestResult tempChild : getChildren()) {
+			if (((IntegrityTestResult) tempChild).getExceptionCount() > 0) {
+				tempCount++;
+			}
+		}
+
+		return tempCount;
 	}
 
 	public int getTestExceptionCount() {

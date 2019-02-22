@@ -321,4 +321,28 @@ public class IntegrityTestResult extends TabulatedResult {
 			return contentType;
 		}
 	}
+
+	public String getIconFileName() {
+		if (getFailCount() == 0) {
+			if (getExceptionCount() > 0) {
+				return "/plugin/de.gebit.integrity.jenkins/integrity_icon_exception.png";
+			} else {
+				return "/plugin/de.gebit.integrity.jenkins/integrity_icon_success.png";
+			}
+		} else {
+			return "/plugin/de.gebit.integrity.jenkins/integrity_icon_failure.png";
+		}
+	}
+
+	public String getRowStyle() {
+		if (getFailCount() == 0) {
+			if (getExceptionCount() > 0) {
+				return "background-color: #fff4e0;";
+			} else {
+				return "background-color: #e2fce0;";
+			}
+		} else {
+			return "background-color: #ffe0e0;";
+		}
+	}
 }
