@@ -2,11 +2,12 @@
 <j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler"
 	xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson"
 	xmlns:f="/lib/form" xmlns:i="jelly:fmt">
-	<table>
+	<table cellspacing="0">
 	<j:if test="${it.hasChildren()}">
-		<tr><th>Name</th><th>Successes</th><th>Failures</th><th>Exceptions</th></tr>
+		<p>${it.getChildren().size()} test result file(s) found - ${it.passChildCount} are successful, ${it.failChildCount} with failures and ${it.exceptionChildCount} with exceptions.</p>
+		<tr><th></th><th style="padding-right: 10px;">Name</th><th style="padding-right: 10px;">Successes</th><th style="padding-right: 10px;">Failures</th><th style="padding-right: 10px;">Exceptions</th></tr>
 	    <j:forEach var="r" items="${it.getChildren()}">
-			<tr><td><a href="${r.safeName}">${r.displayName}</a></td><td>${r.passCount}</td><td>${r.failCount}</td><td>${r.exceptionCount}</td></tr>
+			<tr style="${r.rowStyle}"><td style="padding-right: 4px; padding-left: 4px; border-top: 2px solid #fff;"><img src="${r.iconFileName}" width="16" height="16" /></td><td style="padding-right: 10px; border-top: 2px solid #fff;"><a href="${r.safeName}">${r.displayName}</a></td><td style="padding-right: 10px; border-top: 2px solid #fff;">${r.passCount}</td><td style="padding-right: 10px; border-top: 2px solid #fff;">${r.failCount}</td><td style="padding-right: 10px; border-top: 2px solid #fff;">${r.exceptionCount}</td></tr>
 	    </j:forEach>
 	</j:if>
 	</table>
