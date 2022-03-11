@@ -185,9 +185,15 @@ public class IntegrityTestResultParser extends DefaultTestResultParserImpl {
 						int tempXMLDataStartPos = 0;
 						int tempDoctypeEndPos = 0;
 						boolean tempIsHtml = false;
+						int tempBufferStart = 0;
 						if (tempBuffer.length > 10) {
-							if (tempBuffer[0] == '<' && tempBuffer[1] == '?' && tempBuffer[2] == 'x'
-									&& tempBuffer[3] == 'm' && tempBuffer[4] == 'l') {
+							// Skip some whitespace in the beginning, if there is any
+							while(tempBuffer[tempBufferStart] <= ' ' && tempBufferStart < 5) {
+								tempBufferStart++;
+							}
+							
+							if (tempBuffer[tempBufferStart + 0] == '<' && tempBuffer[tempBufferStart + 1] == '?' && tempBuffer[tempBufferStart + 2] == 'x'
+									&& tempBuffer[tempBufferStart + 3] == 'm' && tempBuffer[tempBufferStart + 4] == 'l') {
 								// This seems to be XML data
 								tempContentType = "text/xml;charset=UTF-8";
 							} else {
@@ -196,7 +202,7 @@ public class IntegrityTestResultParser extends DefaultTestResultParserImpl {
 								tempIsHtml = true;
 
 								// Find out where the DOCTYPE declaration ends
-								if ("<!DOCTYPE ".equals(new String(tempBuffer, 0, 10, "US-ASCII"))) {
+								if ("<!DOCTYPE ".equals(new String(tempBuffer, tempBufferStart , 10, "US-ASCII"))) {
 									do {
 										tempDoctypeEndPos++;
 									} while (tempDoctypeEndPos < tempBuffer.length
@@ -227,7 +233,7 @@ public class IntegrityTestResultParser extends DefaultTestResultParserImpl {
 							// sequence the doctype declaration with the XML data, thereby eliminating everything in
 							// between that could cause trouble
 							tempFinalInputStream = new SequenceInputStream(
-									new ByteArrayInputStream(tempBuffer, 0, tempDoctypeEndPos),
+									new ByteArrayInputStream(tempBuffer, tempBufferStart, tempDoctypeEndPos),
 									new ByteArrayInputStream(tempBuffer, tempXMLDataStartPos,
 											tempBuffer.length - tempXMLDataStartPos));
 						} else {
@@ -368,26 +374,26 @@ public class IntegrityTestResultParser extends DefaultTestResultParserImpl {
 							// totals
 							// from this one and rely on Integrity for summing them up correctly.
 
-							String tempSuccessCount = getValueIgnoreCase(tempStartEvent.getAttributes(),
-									"successCount");
+							String tempSuccessCount
+									= getValueIgnoreCase(tempStartEvent.getAttributes(), "successCount");
 							if (tempSuccessCount != null) {
 								successCount = Integer.parseInt(tempSuccessCount);
 							}
 
-							String tempFailureCount = getValueIgnoreCase(tempStartEvent.getAttributes(),
-									"failureCount");
+							String tempFailureCount
+									= getValueIgnoreCase(tempStartEvent.getAttributes(), "failureCount");
 							if (tempFailureCount != null) {
 								failureCount = Integer.parseInt(tempFailureCount);
 							}
 
-							String tempTestExceptionCount = getValueIgnoreCase(tempStartEvent.getAttributes(),
-									"testExceptionCount");
+							String tempTestExceptionCount
+									= getValueIgnoreCase(tempStartEvent.getAttributes(), "testExceptionCount");
 							if (tempTestExceptionCount != null) {
 								testExceptionCount = Integer.parseInt(tempTestExceptionCount);
 							}
 
-							String tempCallExceptionCount = getValueIgnoreCase(tempStartEvent.getAttributes(),
-									"callExceptionCount");
+							String tempCallExceptionCount
+									= getValueIgnoreCase(tempStartEvent.getAttributes(), "callExceptionCount");
 							if (tempTestExceptionCount != null) {
 								callExceptionCount = Integer.parseInt(tempCallExceptionCount);
 							}
