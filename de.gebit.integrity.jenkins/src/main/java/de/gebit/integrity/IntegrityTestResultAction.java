@@ -15,16 +15,12 @@ import org.jvnet.localizer.Localizable;
 import org.kohsuke.stapler.StaplerProxy;
 import org.kohsuke.stapler.export.Exported;
 
-import com.thoughtworks.xstream.XStream;
-
 import hudson.model.Action;
 import hudson.model.HealthReport;
 import hudson.model.Job;
 import hudson.model.Run;
 import hudson.model.TaskListener;
 import hudson.tasks.test.AbstractTestResultAction;
-import hudson.util.HeapSpaceStringConverter;
-import hudson.util.XStream2;
 import jenkins.tasks.SimpleBuildStep;
 
 /**
@@ -44,16 +40,6 @@ public class IntegrityTestResultAction extends AbstractTestResultAction<Integrit
 	 * The project actions.
 	 */
 	private transient List<IntegrityProjectAction> projectActions;
-
-	/**
-	 * The XStream instance used for result persistence.
-	 */
-	private static final XStream XSTREAM = new XStream2();
-
-	static {
-		XSTREAM.alias("result", IntegrityCompoundTestResult.class);
-		XSTREAM.registerConverter(new HeapSpaceStringConverter(), 100);
-	}
 
 	/**
 	 * The action URL part.
