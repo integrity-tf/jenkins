@@ -52,6 +52,7 @@ public class IntegrityCompoundTestResult extends TabulatedResult {
 
 	static {
 		XSTREAM.alias("result", IntegrityCompoundTestResult.class);
+		XSTREAM.processAnnotations(IntegrityCompoundTestResult.class);
 		XSTREAM.registerConverter(new HeapSpaceStringConverter(), 100);
 	}
 
