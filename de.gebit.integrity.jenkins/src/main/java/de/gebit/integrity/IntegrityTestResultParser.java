@@ -268,7 +268,8 @@ public class IntegrityTestResultParser extends DefaultTestResultParserImpl {
 								"Successfully parsed Integrity test result file " + tempFile.getAbsolutePath());
 					} catch (Throwable exc) {
 						aListener.getLogger().println("Exception while parsing Integrity result: " + exc.getMessage());
-						tempCompoundTestResult.addChild(new IntegrityTestResult(tempCompoundTestResult, tempFinalResultName, "Parse Error - see build logs or this report for details",
+						tempCompoundTestResult.addChild(new IntegrityTestResult(tempCompoundTestResult, tempFinalResultName, 
+							"Parse Error in file " + tempFile.getName() + " - see build logs or this report for details",
 							exc.getMessage().getBytes(Charsets.UTF_8), "text/plain;charset=UTF-8", 0, 0, 1, 0));
 					}
 				}
