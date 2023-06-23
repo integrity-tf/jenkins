@@ -21,6 +21,8 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
+import com.google.common.base.Charsets;
+
 import javax.xml.namespace.QName;
 import javax.xml.stream.XMLEventReader;
 import javax.xml.stream.XMLInputFactory;
@@ -266,6 +268,8 @@ public class IntegrityTestResultParser extends DefaultTestResultParserImpl {
 								"Successfully parsed Integrity test result file " + tempFile.getAbsolutePath());
 					} catch (Throwable exc) {
 						aListener.getLogger().println("Exception while parsing Integrity result: " + exc.getMessage());
+						tempCompoundTestResult.addChild(new IntegrityTestResult(tempCompoundTestResult, tempFinalResultName, "Parse Error - see build logs or this report for details",
+							exc.getMessage().getBytes(Charsets.UTF_8), "text/plain;charset=UTF-8", 0, 0, 1, 0));
 					}
 				}
 			};
