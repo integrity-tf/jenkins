@@ -193,11 +193,8 @@ public class IntegrityHistory {
 		 */
 		private static final long serialVersionUID = 2284582320567360791L;
 
-		private CategoryDataset dataset;
-
 		public MyStackedAreaRenderer(CategoryDataset aDataset) {
 			super();
-			dataset = aDataset;
 		}
 
 		@Override
